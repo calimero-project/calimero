@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2006, 2021 B. Malinowsky
+    Copyright (c) 2006, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,15 +39,15 @@ package tuwien.auto.calimero.serial;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.IntStream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import tuwien.auto.calimero.KnxRuntimeException;
+import tuwien.auto.calimero.log.LogService;
 import tuwien.auto.calimero.serial.spi.SerialCom;
 
 /**
@@ -159,12 +159,12 @@ public class SerialComAdapter implements SerialCom
 	static {
 		boolean b = false;
 		try {
-			LoggerFactory.getLogger("calimero.serial").trace("check Java library path {}", System.getProperty("java.library.path"));
+			LogService.getLogger("calimero.serial").log(Level.TRACE, "check Java library path {0}", System.getProperty("java.library.path"));
 			System.loadLibrary("serialcom");
 			b = true;
 		}
 		catch (SecurityException | UnsatisfiedLinkError e) {
-			LoggerFactory.getLogger("calimero.serial").debug(e.getMessage());
+			LogService.getLogger("calimero.serial").log(Level.DEBUG, e.getMessage());
 		}
 		loaded = b;
 	}
@@ -172,7 +172,7 @@ public class SerialComAdapter implements SerialCom
 	public SerialComAdapter() {
 		if (!loaded)
 			throw new KnxRuntimeException("no serialcom library found");
-		logger = LoggerFactory.getLogger("calimero.serial");
+		logger = LogService.getLogger("calimero.serial");
 	}
 
 	static native boolean portExists(String portId);
@@ -262,7 +262,7 @@ public class SerialComAdapter implements SerialCom
 				close0();
 		}
 		catch (final IOException e) {
-			logger.error("closing serial port", e);
+			logger.log(Level.ERROR, "closing serial port", e);
 		}
 		fd = INVALID_HANDLE;
 	}

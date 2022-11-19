@@ -36,6 +36,8 @@
 
 package tuwien.auto.calimero.dptxlator;
 
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -713,7 +715,7 @@ public class DPTXlatorDateTime extends DPTXlator
 			buf[i] = (short) (data[offset + i] & mask[field]);
 			// check reserved bits
 			if ((ubyte(data[offset + i]) & ~mask[field]) != 0)
-				logger.warn("DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bit not 0");
+				logger.log(WARNING, "DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bit not 0");
 			// check range on set fields
 			if (field == 6 && (buf[i] & NO_DATE) == 0) {
 				checkRange(MONTH, buf[i - 5]);

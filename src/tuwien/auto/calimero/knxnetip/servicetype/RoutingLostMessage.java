@@ -37,6 +37,7 @@
 package tuwien.auto.calimero.knxnetip.servicetype;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.System.Logger.Level;
 
 import tuwien.auto.calimero.KNXFormatException;
 import tuwien.auto.calimero.KNXIllegalArgumentException;
@@ -97,7 +98,7 @@ public class RoutingLostMessage extends ServiceType
 			throw new KNXIllegalArgumentException("device state field out of range [0..0xFF]");
 		// bits 2 to 7 are reserved for now...
 		if (deviceState > 0x03)
-			ServiceType.logger.info("Bits 2..7 not supported in device state");
+			ServiceType.logger.log(Level.INFO, "Bits 2..7 not supported in device state");
 		lost = lostMessages;
 		state = deviceState;
 	}

@@ -36,6 +36,11 @@
 
 package tuwien.auto.calimero.link;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.util.function.Function;
 
 import tuwien.auto.calimero.DataUnitBuilder;
@@ -140,14 +145,13 @@ public class KNXNetworkLinkFT12 extends AbstractLink<FT12Connection>
 		throws KNXTimeoutException, KNXLinkClosedException
 	{
 		try {
-			logger.debug("send message to {}{}", dst, (waitForCon ? ", wait for ack" : ""));
-			if (logger.isTraceEnabled())
-				logger.trace("EMI {}", DataUnitBuilder.toHex(msg, " "));
+			logger.log(DEBUG, "send message to {0}{1}", dst, (waitForCon ? ", wait for ack" : ""));
+			logger.log(TRACE, () -> "EMI " + DataUnitBuilder.toHex(msg, " "));
 			conn.send(msg, waitForCon);
-			logger.trace("send to {} succeeded", dst);
+			logger.log(TRACE, "send to {0} succeeded", dst);
 		}
 		catch (KNXPortClosedException | InterruptedException e) {
-			logger.error("send error, closing link", e);
+			logger.log(ERROR, "send error, closing link", e);
 			close();
 			if (e instanceof InterruptedException)
 				Thread.currentThread().interrupt();
@@ -165,7 +169,7 @@ public class KNXNetworkLinkFT12 extends AbstractLink<FT12Connection>
 			normalMode();
 		}
 		catch (final Exception e) {
-			logger.warn("could not switch BCU back to normal mode", e);
+			logger.log(WARNING, "could not switch BCU back to normal mode", e);
 		}
 	}
 

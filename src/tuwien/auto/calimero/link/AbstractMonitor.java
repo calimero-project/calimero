@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2015, 2021 B. Malinowsky
+    Copyright (c) 2015, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,7 +36,11 @@
 
 package tuwien.auto.calimero.link;
 
-import org.slf4j.Logger;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
+import java.lang.System.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.FrameEvent;
@@ -101,11 +105,11 @@ public abstract class AbstractMonitor<T extends AutoCloseable> implements KNXNet
 				else if (frame instanceof CEMIBusMon)
 					mon = (CEMIBusMon) frame;
 				else {
-					logger.warn("received unsupported frame type with msg code 0x"
+					logger.log(WARNING, "received unsupported frame type with msg code 0x"
 							+ Integer.toHexString(frame.getMessageCode()));
 					return;
 				}
-				logger.trace("{}", mon);
+				logger.log(TRACE, "{0}", mon);
 				final AbstractMonitor<?> netmon = (AbstractMonitor<?>) source;
 				MonitorFrameEvent mfe = new MonitorFrameEvent(netmon, mon);
 				if (decode) {
@@ -115,12 +119,12 @@ public abstract class AbstractMonitor<T extends AutoCloseable> implements KNXNet
 						mfe = new MonitorFrameEvent(netmon, mon, rf);
 					}
 					catch (final KNXFormatException ex) {
-						logger.warn("decoding raw frame", ex);
+						logger.log(WARNING, "decoding raw frame", ex);
 						mfe = new MonitorFrameEvent(netmon, mon, ex);
 						// workaround for PL, BCU might not have switched to ext. busmonitor
 						if (extBusmon) {
 							extBusmon = false;
-							logger.warn("disable extended busmonitor mode, maybe this helps");
+							logger.log(WARNING, "disable extended busmonitor mode, maybe this helps");
 						}
 					}
 				}
@@ -128,7 +132,7 @@ public abstract class AbstractMonitor<T extends AutoCloseable> implements KNXNet
 				addEvent(l -> l.indication(event));
 			}
 			catch (KNXFormatException | RuntimeException ex) {
-				logger.warn("unspecified frame event - ignored", ex);
+				logger.log(WARNING, "unspecified frame event - ignored", ex);
 			}
 		}
 
@@ -137,7 +141,7 @@ public abstract class AbstractMonitor<T extends AutoCloseable> implements KNXNet
 		{
 			final var monitor = (AbstractMonitor<?>) source;
 			monitor.closed = true;
-			logger.info("monitor closed");
+			logger.log(INFO, "monitor closed");
 			if (monitor.wrappedByConnector) {
 				getListeners().listeners().stream().filter(Connector.Link.class::isInstance)
 						.forEach(l -> l.linkClosed(e));
@@ -153,7 +157,7 @@ public abstract class AbstractMonitor<T extends AutoCloseable> implements KNXNet
 		logger = LogService.getLogger("calimero.link." + getName());
 
 		if (settings instanceof PLSettings)
-			logger.info("power-line medium, assuming BCU has extended busmonitor enabled");
+			logger.log(INFO, "power-line medium, assuming BCU has extended busmonitor enabled");
 
 		setKNXMedium(settings);
 		notifier = new MonitorNotifier(this, logger, settings instanceof PLSettings);
@@ -193,7 +197,7 @@ public abstract class AbstractMonitor<T extends AutoCloseable> implements KNXNet
 	public final void setDecodeRawFrames(final boolean decode)
 	{
 		notifier.decode = decode;
-		logger.info((decode ? "enable" : "disable") + " decoding of raw frames");
+		logger.log(INFO, (decode ? "enable" : "disable") + " decoding of raw frames");
 	}
 
 	@Override

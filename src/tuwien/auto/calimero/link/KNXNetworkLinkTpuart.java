@@ -36,6 +36,7 @@
 
 package tuwien.auto.calimero.link;
 
+import java.lang.System.Logger.Level;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -124,8 +125,7 @@ public class KNXNetworkLinkTpuart extends AbstractLink<TpuartConnection>
 		throws KNXTimeoutException, KNXLinkClosedException
 	{
 		try {
-			if (logger.isTraceEnabled())
-				logger.trace("send cEMI {}", DataUnitBuilder.toHex(msg, " "));
+			logger.log(Level.TRACE, () -> "send cEMI " + DataUnitBuilder.toHex(msg, " "));
 			conn.send(msg, waitForCon);
 		}
 		catch (final InterruptedException | KNXPortClosedException e) {

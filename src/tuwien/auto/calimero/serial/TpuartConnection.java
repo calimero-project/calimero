@@ -36,11 +36,18 @@
 
 package tuwien.auto.calimero.serial;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.lang.System.Logger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,9 +59,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.Connection;
@@ -75,7 +79,6 @@ import tuwien.auto.calimero.cemi.CEMILData;
 import tuwien.auto.calimero.internal.EventListeners;
 import tuwien.auto.calimero.internal.Executor;
 import tuwien.auto.calimero.log.LogService;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 import tuwien.auto.calimero.serial.spi.SerialCom;
 
 /**
@@ -205,7 +208,7 @@ public class TpuartConnection implements Connection<byte[]>
 	}
 
 	private boolean waitForInitialUartState() {
-		logger.trace("wait for initial TP-UART state");
+		logger.log(TRACE, "wait for initial TP-UART state");
 		long now = System.nanoTime();
 		final long end = now + 1_000_000_000L;
 		try {
@@ -260,7 +263,7 @@ public class TpuartConnection implements Connection<byte[]>
 	 */
 	public void activateBusmonitor() throws IOException
 	{
-		logger.debug("activate TP-UART busmonitor");
+		logger.log(DEBUG, "activate TP-UART busmonitor");
 		os.write(ActivateBusmon);
 		busmonSequence = 0;
 		busmon = true;
@@ -310,8 +313,7 @@ public class TpuartConnection implements Connection<byte[]>
 		try {
 			final byte[] tp1Frame = cEmiToTP1(frame);
 			final byte[] data = toUartServices(tp1Frame);
-			if (logger.isTraceEnabled())
-				logger.trace("create UART services {}", DataUnitBuilder.toHex(data, " "));
+			logger.log(TRACE, () -> "create UART services " + DataUnitBuilder.toHex(data, " "));
 			req = frame.clone();
 
 			// force cool down period if we got a crispy chip
@@ -334,8 +336,8 @@ public class TpuartConnection implements Connection<byte[]>
 				lock.unlock();
 			}
 			if (logReadyForSending)
-				logger.trace("UART ready for sending after {} us", (System.nanoTime() - start) / 1000);
-			logger.debug("write UART services, {}", (waitForCon ? "waiting for .con" : "non-blocking"));
+				logger.log(TRACE, "UART ready for sending after {0} us", (System.nanoTime() - start) / 1000);
+			logger.log(DEBUG, "write UART services, {0}", (waitForCon ? "waiting for .con" : "non-blocking"));
 
 			lock.lock();
 			try {
@@ -395,7 +397,7 @@ public class TpuartConnection implements Connection<byte[]>
 
 	private void reset() throws IOException
 	{
-		logger.debug("reset TP-UART controller");
+		logger.log(DEBUG, "reset TP-UART controller");
 		busmon = false;
 		busmonSequence = 0;
 		os.write(Reset_req);
@@ -479,9 +481,9 @@ public class TpuartConnection implements Connection<byte[]>
 		final boolean rcvdCon = con.await(maxExchangeTimeout, TimeUnit.MILLISECONDS);
 		final long wait = (System.nanoTime() - start) / 1_000_000;
 		if (rcvdCon)
-			logger.trace("ACK received after {} ms", wait);
+			logger.log(TRACE, "ACK received after {0} ms", wait);
 		else
-			logger.debug("no ACK received after {} ms", wait);
+			logger.log(DEBUG, "no ACK received after {0} ms", wait);
 		return rcvdCon;
 	}
 
@@ -500,7 +502,7 @@ public class TpuartConnection implements Connection<byte[]>
 		final int expected = frame[frame.length - 1];
 		final boolean valid = expected == cs;
 		if (!valid)
-			logger.warn("invalid L-Data checksum 0x{}, expected 0x{}", Integer.toHexString(cs & 0xff),
+			logger.log(WARNING, "invalid L-Data checksum 0x{0}, expected 0x{1}", Integer.toHexString(cs & 0xff),
 					Integer.toHexString(expected & 0xff));
 		return valid;
 	}
@@ -515,11 +517,11 @@ public class TpuartConnection implements Connection<byte[]>
 			if (delay != null) {
 				final int value = Integer.parseUnsignedInt(delay);
 				maxInterByteDelay.set(value);
-				LoggerFactory.getLogger("calimero.serial.tpuart").info("using {} of {} us", key, value);
+				LogService.getLogger("calimero.serial.tpuart").log(INFO, "using {0} of {1} us", key, value);
 			}
 		}
 		catch (final RuntimeException e) {
-			LoggerFactory.getLogger("calimero.serial.tpuart").warn("on checking property {}", key, e);
+			LogService.getLogger("calimero.serial.tpuart").log(WARNING, "on checking property {0}", key, e);
 		}
 	}
 
@@ -556,7 +558,7 @@ public class TpuartConnection implements Connection<byte[]>
 					drained++;
 			}
 			catch (final IOException ignore) {}
-			logger.trace("drained rx queue ({} bytes)", drained);
+			logger.log(TRACE, "drained rx queue ({0} bytes)", drained);
 
 			long enterIdleTimestamp = 0; // [ns]
 			while (!quit) {
@@ -591,7 +593,7 @@ public class TpuartConnection implements Connection<byte[]>
 
 					final long idlePeriod = (start - enterIdleTimestamp) / 1000;
 					if (enterIdleTimestamp != 0 && idlePeriod > 100_000)
-						logger.trace("receiver woke from extended idle period of {} us", idlePeriod);
+						logger.log(TRACE, "receiver woke from extended idle period of {0} us", idlePeriod);
 					idle = false;
 					enterIdleTimestamp = 0;
 
@@ -599,14 +601,14 @@ public class TpuartConnection implements Connection<byte[]>
 						; // nothing to do
 					else if (c == Reset_ind) {
 						uartStatePending = false;
-						logger.debug("TP-UART reset.ind");
+						logger.log(DEBUG, "TP-UART reset.ind");
 					}
 
 					final long loop = System.nanoTime() - start;
-					logger.trace("loop time = {} us", loop / 1000);
+					logger.log(TRACE, "loop time = {0} us", loop / 1000);
 				}
 				catch (final RuntimeException e) {
-					logger.warn("continue after internal error in receiver loop", e);
+					logger.log(WARNING, "continue after internal error in receiver loop", e);
 				}
 				catch (final InterruptedException e) {}
 				catch (final IOException e) {
@@ -639,7 +641,7 @@ public class TpuartConnection implements Connection<byte[]>
 			// cond: consecutively losing 4 frames (1 msg w/ 1 .ind + 2 .ind repetitions, and 1st .ind of next msg)
 			if (consecutiveFrameDrops >= 3) {
 				maxDelay = maxInterByteDelay.accumulateAndGet(Math.min(maxDelay + 500, 20_000), Math::max);
-				logger.warn("{} partial frames discarded, increase max. inter-byte delay to {} us",
+				logger.log(WARNING, "{0} partial frames discarded, increase max. inter-byte delay to {1} us",
 						consecutiveFrameDrops + 1, maxDelay);
 				consecutiveFrameDrops = -1;
 			}
@@ -682,7 +684,7 @@ public class TpuartConnection implements Connection<byte[]>
 					if (frame.length >= total) {
 						try {
 							final byte[] data = in.toByteArray();
-							logger.debug("received TP1 L-Data (length {}): {}", frame.length,
+							logger.log(DEBUG, "received TP1 L-Data (length {0}): {2}", frame.length,
 									DataUnitBuilder.toHex(data, " "));
 							consecutiveFrameDrops = -1;
 							if (busmon) {
@@ -693,7 +695,7 @@ public class TpuartConnection implements Connection<byte[]>
 								final boolean repeated = (data[0] & RepeatFlag) == 0;
 								if (repeated && Arrays.equals(lastReceived, 0, lastReceived.length - 2, frame, 0,
 										data.length - 2)) {
-									logger.debug("ignore repetition of directly preceding correctly received frame");
+									logger.log(DEBUG, "ignore repetition of directly preceding correctly received frame");
 								}
 								else {
 									lastReceived = data.clone();
@@ -704,7 +706,7 @@ public class TpuartConnection implements Connection<byte[]>
 							}
 						}
 						catch (final Exception e) {
-							logger.error("error creating {} from TP1 data (length {}): {}",
+							logger.log(ERROR, "error creating {0} from TP1 data (length {2}): {3}",
 									busmon ? "Busmon.ind" : "L-Data", frame.length, DataUnitBuilder.toHex(frame, " "),
 									e);
 						}
@@ -727,7 +729,7 @@ public class TpuartConnection implements Connection<byte[]>
 					lastRead = System.nanoTime() / 1000;
 					parseFrame(minBytes[read - 1]);
 				}
-				logger.trace("finished reading {} bytes after {} us", read, initialMinBytes);
+				logger.log(TRACE, "finished reading {0} bytes after {1} us", read, initialMinBytes);
 			}
 			// busmon mode only: short acks
 			else if (c == Ack || c == Nak || c == Busy)
@@ -740,9 +742,8 @@ public class TpuartConnection implements Connection<byte[]>
 		private void resetReceiveBuffer(final int c, final long diff) {
 			final byte[] buf = in.toByteArray();
 			in.reset();
-			logger.debug("reset receive buffer after {} us, char 0x{}, discard partial frame (length {}) {}", diff,
-					Integer.toHexString(c), buf.length,
-					DataUnitBuilder.toHex(buf, " "));
+			logger.log(DEBUG, "reset receive buffer after {0} us, char 0x{1}, discard partial frame (length {2}) {3}",
+					diff, Integer.toHexString(c), buf.length, DataUnitBuilder.toHex(buf, " "));
 			consecutiveFrameDrops++;
 		}
 
@@ -780,14 +781,14 @@ public class TpuartConnection implements Connection<byte[]>
 			final boolean tempWarning = (c & 0x08) == 0x08; // too hot
 
 			final boolean info = slaveCollision || rxError || txError || protError || tempWarning;
-			LogService.log(logger, info ? LogLevel.INFO : LogLevel.TRACE, "TP-UART status: Temp. {}{}{}{}{}",
+			logger.log(info ? INFO : TRACE, "TP-UART status: Temp. {0}{1}{2}{3}{4}",
 					tempWarning ? "warning" : "OK", slaveCollision ? ", slave collision" : "",
 					rxError ? ", receive error" : "", txError ? ", transmit error" : "",
 					protError ? ", protocol error" : "");
 
 			if (tempWarning) {
 				coolDownUntil = System.nanoTime() + 1_000_000_000;
-				logger.warn("TP-UART high temperature warning! Sending is paused for 1 second ...");
+				logger.log(WARNING, "TP-UART high temperature warning! Sending is paused for 1 second ...");
 			}
 			return true;
 		}
@@ -798,7 +799,7 @@ public class TpuartConnection implements Connection<byte[]>
 			if (con) {
 				final boolean pos = (c & 0x80) == 0x80;
 				final String status = pos ? "positive" : "negative";
-				logger.debug("{} L_Data.con", status);
+				logger.log(DEBUG, "{0} L_Data.con", status);
 				onConfirmation(pos);
 			}
 			return con;
@@ -811,7 +812,7 @@ public class TpuartConnection implements Connection<byte[]>
 			final boolean start = (c & 0xd0) == StdFrameFormat || (c & 0xd0) == ExtFrameFormat;
 			if (start) {
 //				final boolean repeated = (c & RepeatFlag) == 0;
-//				logger.trace("start of frame 0x{}, repeated = {}", Integer.toHexString(c), repeated);
+//				logger.log(TRACE, "start of frame 0x{0}, repeated = {1}", Integer.toHexString(c), repeated);
 				extFrame = (c & 0xd0) == ExtFrameFormat;
 			}
 			return start;
@@ -845,7 +846,7 @@ public class TpuartConnection implements Connection<byte[]>
 			if (oneOfUs) {
 				ack |= 0x01;
 				os.write(new byte[] { (byte) ack });
-				logger.trace("write ACK (0x{}) for {}", Integer.toHexString(ack), dst);
+				logger.log(TRACE, "write ACK (0x{0}) for {1}", Integer.toHexString(ack), dst);
 			}
 			frameAcked = true;
 		}
@@ -933,14 +934,14 @@ public class TpuartConnection implements Connection<byte[]>
 		{
 			if (frame == null)
 				return;
-			logger.trace("cEMI (length {}): {}", frame.length, DataUnitBuilder.toHex(frame, " "));
+			logger.log(TRACE, "cEMI (length {0}): {1}", frame.length, DataUnitBuilder.toHex(frame, " "));
 			try {
 				final CEMI msg = CEMIFactory.create(frame, 0, frame.length);
 				final FrameEvent fe = new FrameEvent(this, msg);
 				listeners.fire(l -> l.frameReceived(fe));
 			}
 			catch (final KNXFormatException | RuntimeException e) {
-				logger.error("invalid frame for cEMI: {}", DataUnitBuilder.toHex(frame, " "), e);
+				logger.log(ERROR, "invalid frame for cEMI: {0}", DataUnitBuilder.toHex(frame, " "), e);
 			}
 		}
 	}

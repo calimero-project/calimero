@@ -36,10 +36,16 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.knxnetip.Net.hostPort;
 import static tuwien.auto.calimero.knxnetip.util.Srp.withDeviceDescription;
 
 import java.io.IOException;
+import java.lang.System.Logger;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -67,8 +73,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.KNXFormatException;
@@ -143,7 +147,7 @@ public class Discoverer
 			a = InetAddress.getByName(SEARCH_MULTICAST);
 		}
 		catch (final UnknownHostException e) {
-			logger.error("on resolving system setup multicast " + SEARCH_MULTICAST, e);
+			logger.log(ERROR, "on resolving system setup multicast " + SEARCH_MULTICAST, e);
 		}
 		SYSTEM_SETUP_MULTICAST = a;
 	}
@@ -367,7 +371,7 @@ public class Discoverer
 			// return the wildcard address for loopback or default host address; but port
 			// is necessarily queried from socket since it might have been 0 before (for ephemeral port)
 			final InetSocketAddress local = (InetSocketAddress) dc.getLocalAddress();
-			logger.debug("search {} -> server control endpoint {}", hostPort(local), hostPort(serverControlEndpoint));
+			logger.log(DEBUG, "search {0} -> server control endpoint {1}", hostPort(local), hostPort(serverControlEndpoint));
 
 			final boolean tcp = false;
 			final InetSocketAddress res = tcp || nat ? new InetSocketAddress(0) : local;
@@ -468,7 +472,7 @@ public class Discoverer
 				cf.get();
 			}
 			catch (CancellationException | ExecutionException e) {
-				logger.error("search completed with error", e);
+				logger.log(ERROR, "search completed with error", e);
 			}
 		}
 	}
@@ -503,7 +507,7 @@ public class Discoverer
 			search.get();
 		}
 		catch (CancellationException | ExecutionException e) {
-			logger.error("search completed with error", e);
+			logger.log(ERROR, "search completed with error", e);
 		}
 		finally {
 			stopSearch();
@@ -531,7 +535,7 @@ public class Discoverer
 				final InetAddress a = ea.nextElement();
 				// without NAT, we only try IPv4 addresses
 				if (!nat && a.getAddress().length != 4)
-					logger.debug("skip {}, not an IPv4 address", a);
+					logger.log(DEBUG, "skip {0}, not an IPv4 address", a);
 				else
 					try {
 						if (!(lo && a.isLoopbackAddress())) {
@@ -548,7 +552,7 @@ public class Discoverer
 							final String msg = t.getMessage();
 							causeMsg = " (" + (msg != null ? msg : t.toString()) + ")";
 						}
-						logger.warn("using {} at {}: {}{}", a, ni.getName(), e.getMessage(), causeMsg);
+						logger.log(WARNING, "using {0} at {1}: {2}{3}", a, ni.getName(), e.getMessage(), causeMsg);
 					}
 			}
 		}
@@ -682,7 +686,7 @@ public class Discoverer
 			final String nifName = ni != null ? ni.getName() + " " : "";
 			final int realLocalPort = ((InetSocketAddress) channel.getLocalAddress()).getPort();
 			final var localEndpoint = new InetSocketAddress(localAddr, realLocalPort);
-			logger.debug("search on " + nifName + localEndpoint);
+			logger.log(DEBUG, "search on " + nifName + localEndpoint);
 
 			// IP multicast responses MUST be forwarded by NAT without
 			// modifications to IP/port, hence, we can safely state them in our HPAI
@@ -840,10 +844,10 @@ public class Discoverer
 				loop();
 			}
 			catch (final IOException e) {
-				logger.error("while waiting for response", e);
+				logger.log(ERROR, "while waiting for response", e);
 			}
 			finally {
-				logger.trace("stopped on " + id);
+				logger.log(TRACE, "stopped on " + id);
 				receivers.remove(this);
 			}
 		}
@@ -856,7 +860,7 @@ public class Discoverer
 				final int bodyLen = h.getTotalLength() - h.getStructLength();
 				final int svc = h.getServiceType();
 				if (h.getTotalLength() > length)
-					logger.warn("ignore received packet from {}, packet size {} > buffer size {}", source,
+					logger.log(WARNING, "ignore received packet from {0}, packet size {1} > buffer size {2}", source,
 							h.getTotalLength(), length);
 				else if (multicast && (svc == KNXnetIPHeader.SEARCH_RES || svc == KNXnetIPHeader.SearchResponse)) {
 					// if our search is still running, add response if not already added
@@ -900,10 +904,10 @@ public class Discoverer
 				}
 			}
 			catch (final KNXFormatException e) {
-				logger.info("ignore received packet from {}, {}", source, e.getMessage());
+				logger.log(INFO, "ignore received packet from {0}, {1}", source, e.getMessage());
 			}
 			catch (final RuntimeException e) {
-				logger.warn("error parsing received packet from {}", source, e);
+				logger.log(WARNING, "error parsing received packet from {0}", source, e);
 			}
 		}
 

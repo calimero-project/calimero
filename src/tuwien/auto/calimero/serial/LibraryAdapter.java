@@ -36,7 +36,10 @@
 
 package tuwien.auto.calimero.serial;
 
+import static java.lang.System.Logger.Level.DEBUG;
+
 import java.io.IOException;
+import java.lang.System.Logger;
 import java.util.List;
 import java.util.Locale;
 import java.util.ServiceConfigurationError;
@@ -45,10 +48,8 @@ import java.util.ServiceLoader.Provider;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import tuwien.auto.calimero.KNXException;
+import tuwien.auto.calimero.log.LogService;
 import tuwien.auto.calimero.serial.spi.SerialCom;
 import tuwien.auto.calimero.serial.spi.SerialCom.FlowControl;
 import tuwien.auto.calimero.serial.spi.SerialCom.Parity;
@@ -89,7 +90,7 @@ public final class LibraryAdapter
 			}
 			catch (final ServiceConfigurationError e) {
 				final var ex = e.getCause() != null ? e.getCause() : e;
-				LoggerFactory.getLogger("calimero.serial").debug("skip service provider {}", provider.type().getName(), ex);
+				LogService.getLogger("calimero.serial").log(DEBUG, "skip service provider {0}", provider.type().getName(), ex);
 			}
 		}
 		return List.of();
@@ -116,7 +117,7 @@ public final class LibraryAdapter
 			}
 			catch (final ServiceConfigurationError e) {
 				final var ex = e.getCause() != null ? e.getCause() : e;
-				logger.debug("skip service provider {}: {}", provider.type().getName(), ex.getMessage());
+				logger.log(DEBUG, "skip service provider {0}: {1}", provider.type().getName(), ex.getMessage());
 			}
 			catch (final Throwable e) {
 				t = e;
@@ -134,7 +135,7 @@ public final class LibraryAdapter
 			final int baudrate, final int idleTimeout) throws Throwable {
 
 		final var inst = provider.get();
-		logger.debug("open serial communication provider {}", provider.type().getName());
+		logger.log(DEBUG, "open serial communication provider {0}", provider.type().getName());
 		inst.open(portId);
 		try {
 			inst.setSerialPortParams(baudrate, 8, StopBits.One, Parity.Even);
@@ -150,7 +151,7 @@ public final class LibraryAdapter
 			inst.close();
 			throw e;
 		}
-		logger.debug("serial port setup: {}", inst);
+		logger.log(DEBUG, "serial port setup: {0}", inst);
 		return inst;
 	}
 }

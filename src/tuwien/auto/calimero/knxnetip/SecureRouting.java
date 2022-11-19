@@ -36,11 +36,16 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.DataUnitBuilder.toHex;
 import static tuwien.auto.calimero.knxnetip.Net.hostPort;
 import static tuwien.auto.calimero.knxnetip.SecureConnection.securityInfo;
 
 import java.io.IOException;
+import java.lang.System.Logger.Level;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -64,7 +69,6 @@ import tuwien.auto.calimero.KNXIllegalArgumentException;
 import tuwien.auto.calimero.SerialNumber;
 import tuwien.auto.calimero.internal.Executor;
 import tuwien.auto.calimero.knxnetip.servicetype.KNXnetIPHeader;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 import tuwien.auto.calimero.secure.KnxSecureException;
 
 public final class SecureRouting extends KNXnetIPRouting {
@@ -171,7 +175,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 		if (svc == KNXnetIPHeader.SEARCH_REQ || svc == KNXnetIPHeader.SearchRequest)
 			return super.handleServiceType(h, data, offset, src, port);
 		if (!h.isSecure()) {
-			logger.trace("received insecure service type 0x{} - ignore", Integer.toHexString(svc));
+			logger.log(TRACE, "received insecure service type 0x{0} - ignore", Integer.toHexString(svc));
 			return true;
 		}
 
@@ -181,7 +185,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 				onGroupSync(src, (long) fields[0], true, (SerialNumber) fields[1], (int) fields[2]);
 			}
 			catch (final KnxSecureException e) {
-				logger.debug("group sync {}", e.getMessage());
+				logger.log(DEBUG, "group sync {0}", e.getMessage());
 				return true;
 			}
 		}
@@ -190,7 +194,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 			final long timestamp = (long) fields[1];
 			if (!withinTolerance(src, timestamp, (SerialNumber) fields[2], (int) fields[3])) {
 				final var source = new InetSocketAddress(src, port);
-				logger.warn("{} timestamp {} outside latency tolerance of {} ms (local {}) - ignore", hostPort(source),
+				logger.log(WARNING, "{0} timestamp {1} outside latency tolerance of {2} ms (local {3}) - ignore", hostPort(source),
 						timestamp, mcastLatencyTolerance, timestamp());
 				return true;
 			}
@@ -202,13 +206,13 @@ public final class SecureRouting extends KNXnetIPRouting {
 			return super.handleServiceType(containedHeader, packet, containedHeader.getStructLength(), src, port);
 		}
 		else
-			logger.warn("received unsupported secure service type 0x{} - ignore", Integer.toHexString(svc));
+			logger.log(WARNING, "received unsupported secure service type 0x{0} - ignore", Integer.toHexString(svc));
 
 		return true;
 	}
 
 	@Override
-	protected void close(final int initiator, final String reason, final LogLevel level, final Throwable t) {
+	protected void close(final int initiator, final String reason, final Level level, final Throwable t) {
 		groupSync.cancel(true);
 		super.close(initiator, reason, level, t);
 	}
@@ -223,7 +227,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 			final SerialNumber sn, final int tag) {
 		final long local = timestamp();
 		if (timestamp > local) {
-			logger.debug("sync timestamp +{} ms", timestamp - local);
+			logger.log(DEBUG, "sync timestamp +{0} ms", timestamp - local);
 			timestampOffset += timestamp - local;
 			syncedWithGroup(byTimerNotify, sn, tag);
 		}
@@ -279,7 +283,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 
 		scheduleGroupSync(periodicNotifyDelay());
 		if (!syncedWithGroup && tag == sentGroupSyncTag && sno.equals(sn)) {
-			logger.info("synchronized with group {}", getRemoteAddress().getAddress().getHostAddress());
+			logger.log(INFO, "synchronized with group {0}", getRemoteAddress().getAddress().getHostAddress());
 			syncedWithGroup = true;
 			synchronized (this) {
 				notifyAll();
@@ -299,7 +303,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 			remaining = end - System.nanoTime() / 1_000_000;
 		}
 		syncedWithGroup = true;
-		logger.trace("waited {} ms for group sync", wait - remaining);
+		logger.log(TRACE, "waited {0} ms for group sync", wait - remaining);
 	}
 
 	private boolean isLocalIpAddress(final InetAddress addr) {
@@ -317,7 +321,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 	}
 
 	private void scheduleGroupSync(final long initialDelay) {
-		logger.trace("schedule group sync (initial delay {} ms)", initialDelay);
+		logger.log(TRACE, "schedule group sync (initial delay {0} ms)", initialDelay);
 		groupSync.cancel(false);
 		groupSync = Executor.scheduledExecutor().scheduleWithFixedDelay(this::sendGroupSync, initialDelay,
 				syncQueryInterval, TimeUnit.MILLISECONDS);
@@ -328,7 +332,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 		try {
 			final long timestamp = timestamp();
 			final byte[] sync = newGroupSync(timestamp);
-			logger.debug("sending group sync timestamp {} ms (S/N {}, tag {})", timestamp,
+			logger.log(DEBUG, "sending group sync timestamp {0} ms (S/N {1}, tag {2})", timestamp,
 					periodicSchedule ? sno : timerNotifySN,
 					periodicSchedule ? sentGroupSyncTag : timerNotifyTag);
 
@@ -342,7 +346,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 				groupSync.cancel(true);
 				throw new CancellationException("stop group sync for " + this);
 			}
-			logger.warn("sending group sync failed", e);
+			logger.log(WARNING, "sending group sync failed", e);
 		}
 	}
 
@@ -381,7 +385,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 		final var sn = (SerialNumber) fields[2];
 		final int tag = (int) fields[3];
 		final byte[] knxipPacket = (byte[]) fields[4];
-		logger.trace("received {} (session {} seq {} S/N {} tag {})", toHex(knxipPacket, " "), sid, seq, sn, tag);
+		logger.log(TRACE, "received {0} (session {1} seq {2} S/N {3} tag {4})", toHex(knxipPacket, " "), sid, seq, sn, tag);
 		return new Object[] { fields[0], fields[1], sn, fields[3], fields[4] };
 	}
 
@@ -425,7 +429,7 @@ public final class SecureRouting extends KNXnetIPRouting {
 		final byte[] secInfo = securityInfo(buffer.array(), 6, 0);
 		SecureConnection.cbcMacVerify(data, offset - h.getStructLength(), h.getTotalLength() - SecureConnection.macSize,
 				secretKey, secInfo, mac.array());
-		logger.trace("received group sync timestamp {} ms (S/N {}, tag {})", timestamp, toHex(sn, ""), msgTag);
+		logger.log(TRACE, "received group sync timestamp {0} ms (S/N {1}, tag {2})", timestamp, toHex(sn, ""), msgTag);
 		return new Object[] { timestamp, SerialNumber.from(sn), msgTag };
 	}
 

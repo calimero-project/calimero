@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2010, 2021 B. Malinowsky
+    Copyright (c) 2010, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,17 +36,19 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.io.IOException;
+import java.lang.System.Logger;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.KNXFormatException;
 import tuwien.auto.calimero.internal.UdpSocketLooper;
 import tuwien.auto.calimero.knxnetip.servicetype.KNXnetIPHeader;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 
 class ReceiverLoop extends UdpSocketLooper implements Runnable
 {
@@ -75,7 +77,7 @@ class ReceiverLoop extends UdpSocketLooper implements Runnable
 			loop();
 		}
 		catch (final IOException e) {
-			conn.close(CloseEvent.INTERNAL, "receiver communication failure", LogLevel.ERROR, e);
+			conn.close(CloseEvent.INTERNAL, "receiver communication failure", ERROR, e);
 		}
 	}
 
@@ -86,16 +88,16 @@ class ReceiverLoop extends UdpSocketLooper implements Runnable
 		try {
 			final KNXnetIPHeader h = KNXnetIPHeader.from(data, offset);
 			if (h.getTotalLength() > length)
-				logger.warn("received frame length " + length + " for " + h + " - ignored");
+				logger.log(WARNING, "received frame length " + length + " for " + h + " - ignored");
 			else if (h.getServiceType() == 0)
 				// check service type for 0 (invalid type), so unused service types of us can stay 0 by default
-				logger.warn("received frame with service type 0x0 - ignored");
+				logger.log(WARNING, "received frame with service type 0x0 - ignored");
 			else if (!conn.handleServiceType(h, data, offset + h.getStructLength(), source))
-				logger.info("received unknown frame with service type 0x"
+				logger.log(INFO, "received unknown frame with service type 0x"
 						+ Integer.toHexString(h.getServiceType()) + " - ignored");
 		}
 		catch (KNXFormatException | RuntimeException e) {
-			logger.warn("received invalid frame", e);
+			logger.log(WARNING, "received invalid frame", e);
 		}
 	}
 }

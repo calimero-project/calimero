@@ -37,12 +37,16 @@
 package tuwien.auto.calimero.mgmt;
 
 import static java.lang.String.format;
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.WARNING;
 import static java.nio.ByteBuffer.allocate;
 import static java.util.stream.Collectors.toList;
 import static tuwien.auto.calimero.DataUnitBuilder.createAPDU;
 import static tuwien.auto.calimero.DataUnitBuilder.createLengthOptimizedAPDU;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.System.Logger;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -56,8 +60,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.DataUnitBuilder;
@@ -188,7 +190,7 @@ public class ManagementClientImpl implements ManagementClient
 		@Override
 		public void linkClosed(final CloseEvent e)
 		{
-			logger.debug("attached link was closed");
+			logger.log(DEBUG, "attached link was closed");
 		}
 
 		private void checkResponse(final FrameEvent e) {
@@ -204,7 +206,7 @@ public class ManagementClientImpl implements ManagementClient
 			catch (final RuntimeException rte) {
 				final var cemi = e.getFrame();
 				final var src = cemi instanceof CEMILData ? ((CEMILData) cemi).getDestination() : "cEMI server";
-				logger.warn("on indication from {}", src, rte);
+				logger.log(WARNING, "on indication from {0}", src, rte);
 			}
 		}
 	};
@@ -457,7 +459,7 @@ public class ManagementClientImpl implements ManagementClient
 			final int receivedPid = apdu[4] & 0xff;
 			if (apdu.length == 5) {
 				final String s = receivedPid == 0xff ? receivedIot == 0xffff ? "object type" : "PID" : "response";
-				logger.info("network parameter read response from {} for interface object type {} "
+				logger.log(INFO, "network parameter read response from {0} for interface object type {1} "
 						+ "PID {}: unsupported {}", responder, objectType, pid, s);
 				return Optional.empty();
 			}
@@ -490,7 +492,7 @@ public class ManagementClientImpl implements ManagementClient
 			final int receivedPid = apdu[4] & 0xff;
 			if (apdu.length == 5) {
 				final String s = receivedPid == 0xff ? receivedIot == 0xffff ? "object type" : "PID" : "response";
-				logger.info("network parameter read response from {} for interface object type {} "
+				logger.log(INFO, "network parameter read response from {0} for interface object type {1} "
 						+ "PID {}: unsupported {}", responder, objectType, pid, s);
 				return Optional.empty();
 			}
@@ -558,7 +560,7 @@ public class ManagementClientImpl implements ManagementClient
 			final int receivedPid = (apdu[4] & 0xff) << 4 | (apdu[5] & 0xf0) >> 4;
 			if (apdu.length == 6) {
 				final String s = receivedPid == 0xff ? receivedIot == 0xffff ? "object type" : "PID" : "response";
-				logger.info("system network parameter read response from {} for interface object type {} "
+				logger.log(INFO, "system network parameter read response from {0} for interface object type {1} "
 						+ "PID {}: unsupported {}", responder, objectType, pid, s);
 				return Optional.empty();
 			}
@@ -731,7 +733,7 @@ public class ManagementClientImpl implements ManagementClient
 					}
 				}
 				catch (final KNXInvalidResponseException e) {
-					logger.debug("skip invalid property read response: {}", e.getMessage());
+					logger.log(DEBUG, "skip invalid property read response: {0}", e.getMessage());
 				}
 				catch (final KNXRemoteException e) {
 					exceptions.add(e);
@@ -877,7 +879,7 @@ public class ManagementClientImpl implements ManagementClient
 				list[i] = unsigned(readProperty(dst, 0, PID.IO_LIST, i + 1, 1));
 		}
 		catch (final KNXRemoteException e) {
-			logger.debug("device {} does not support extended property services ({})", dst.getAddress(), e.toString());
+			logger.log(DEBUG, "device {0} does not support extended property services ({1})", dst.getAddress(), e.toString());
 		}
 		dst.setInterfaceObjectList(list);
 		return list;
@@ -936,8 +938,9 @@ public class ManagementClientImpl implements ManagementClient
 			if (objTypeOk && oiOk && pidOk && pidxOk)
 				return Description.of(0, Arrays.copyOfRange(apdu, 2, apdu.length));
 
-			logger.warn("wrong description response for {}({})|{} prop idx {} (got {}({})|{} (idx {}))", objectType,
-					objInstance, propertyId, propertyIndex, rcvObjectType, rcvObjInstance, rcvPropertyId, rcvPropertyIdx);
+			logger.log(WARNING, "wrong description response for {0}({1})|{2} prop idx {3} (got {4}({5})|{6} (idx {7}))",
+					objectType, objInstance, propertyId, propertyIndex, rcvObjectType, rcvObjInstance, rcvPropertyId,
+					rcvPropertyIdx);
 		}
 		throw new KNXTimeoutException("timeout occurred while waiting for data response");
 	}
@@ -996,8 +999,8 @@ public class ManagementClientImpl implements ManagementClient
 				return new byte[] { apdu[2], apdu[3], apdu[4], apdu[5], apdu[6], apdu[7], apdu[8] };
 			}
 
-			logger.warn("wrong description response for OI {} PID {} prop idx {} (got {}|{} (idx {}))", objIndex,
-					propertyId, propIndex, apdu[2] & 0xff, apdu[3] & 0xff, apdu[4] & 0xff);
+			logger.log(WARNING, "wrong description response for OI {0} PID {1} prop idx {2} (got {3}|{4} (idx {5}))",
+					objIndex, propertyId, propIndex, apdu[2] & 0xff, apdu[3] & 0xff, apdu[4] & 0xff);
 		}
 		throw new KNXTimeoutException("timeout occurred while waiting for data response");
 	}
@@ -1227,7 +1230,7 @@ public class ManagementClientImpl implements ManagementClient
 		tl.removeTransportListener(tlListener);
 		final KNXNetworkLink lnk = detachTransportLayer ? tl.detach() : null;
 		if (lnk != null) {
-			logger.debug("detached from {}", lnk);
+			logger.log(DEBUG, "detached from {0}", lnk);
 		}
 		listeners.removeAll();
 		sal.close();
@@ -1321,7 +1324,7 @@ public class ManagementClientImpl implements ManagementClient
 					if (apdu.length < minAsduLen + 2 || apdu.length > maxAsduLen + 2) {
 						final String s = "invalid ASDU response length " + (apdu.length - 2) + " bytes, expected "
 								+ minAsduLen + " to " + maxAsduLen;
-						logger.warn("received response from " + source + " with " + s);
+						logger.log(WARNING, "received response from " + source + " with " + s);
 						if (oneResponseOnly)
 							throw new KNXInvalidResponseException(s);
 					}
@@ -1385,7 +1388,7 @@ public class ManagementClientImpl implements ManagementClient
 				dst.maxApduLength(Math.min(maxLinkApdu, maxDeviceApdu));
 			}
 			catch (KNXTimeoutException | KNXRemoteException | KNXDisconnectException e) {
-				logger.debug("use max. APDU length of 15 bytes for {}", dst.getAddress());
+				logger.log(DEBUG, "use max. APDU length of 15 bytes for {0}", dst.getAddress());
 			}
 		}
 		return dst.maxApduLength().get();
@@ -1420,7 +1423,7 @@ public class ManagementClientImpl implements ManagementClient
 
 		if (updateToolKey != null) {
 			sal.security().deviceToolKeys().put(d.getAddress(), updateToolKey);
-			logger.info("update device toolkey for {}", d.getAddress());
+			logger.log(INFO, "update device toolkey for {0}", d.getAddress());
 		}
 
 		if (d.isConnectionOriented())

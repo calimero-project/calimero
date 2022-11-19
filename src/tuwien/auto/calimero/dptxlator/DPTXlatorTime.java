@@ -38,6 +38,7 @@ package tuwien.auto.calimero.dptxlator;
 
 import static java.time.temporal.ChronoField.DAY_OF_WEEK;
 
+import java.lang.System.Logger.Level;
 import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -310,7 +311,7 @@ public class DPTXlatorTime extends DPTXlator
 					buf, item++);
 			// check reserved bits
 			if ((data[i + MINUTE] & ~0x3F) + (data[i + SECOND] & ~0x3F) != 0)
-				logger.warn("DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bit not 0");
+				logger.log(Level.WARNING, "DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bit not 0");
 		}
 		this.data = buf;
 	}

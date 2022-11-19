@@ -102,7 +102,8 @@ Access via KNXnet/IP, KNX USB, KNX RF USB, TP-UART, and FT1.2
 Logging
 -------
 
-Calimero uses the [Simple Logging Facade for Java (slf4j)](http://www.slf4j.org/). Users can bind any desired logging frameworks. The default dependency is the [Simple Logger](http://www.slf4j.org/api/org/slf4j/impl/SimpleLogger.html). The simple logger logs everything to standard output, and can be configured via the file `simplelogger.properties`, JVM system properties, or `java` command line options, e.g., `-Dorg.slf4j.simpleLogger.defaultLogLevel=trace`.
+Calimero uses the [System.Logger](https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/lang/System.Logger.html). Bind any desired logging frameworks of your choice.
+
 
 Testing
 -------

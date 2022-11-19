@@ -36,6 +36,10 @@
 
 package tuwien.auto.calimero.mgmt;
 
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.WARNING;
+
+import java.lang.System.Logger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -54,8 +58,6 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.DataUnitBuilder;
@@ -154,7 +156,7 @@ public class ManagementProceduresImpl implements ManagementProcedures
 						dd0.accept(source, dd);
 					}
 					catch (final RuntimeException rte) { // KNXIllegalArgumentException for unknown DD0
-						logger.info("{} device descriptor 0 response", source, rte);
+						logger.log(INFO, "{0} device descriptor 0 response", source, rte);
 					}
 				}
 			}
@@ -292,7 +294,7 @@ public class ManagementProceduresImpl implements ManagementProcedures
 				ipSbcEnabled.add(dst);
 			}
 			catch (KNXDisconnectException | KNXRemoteException e) {
-				logger.warn("failed to enable IP system broadcast on {}, {}", router, e.getMessage());
+				logger.log(WARNING, "failed to enable IP system broadcast on {0}, {1}", router, e.getMessage());
 			}
 		}
 
@@ -385,11 +387,11 @@ public class ManagementProceduresImpl implements ManagementProcedures
 					catch (final KNXException e) {
 						// a device with newAddress exists but is not in programming mode, bail out
 						if (exists) {
-							logger.warn("device exists but is not in programming mode, cancel writing address");
+							logger.log(WARNING, "device exists but is not in programming mode, cancel writing address");
 							return false;
 						}
 					}
-					logger.info("KNX devices in programming mode: " + count);
+					logger.log(INFO, "KNX devices in programming mode: " + count);
 				}
 				if (!setAddr)
 					return false;
@@ -455,7 +457,7 @@ public class ManagementProceduresImpl implements ManagementProcedures
 		final IndividualAddress chk = mc.readAddress(serialNo);
 		final boolean equals = chk.equals(newAddress);
 		if (!equals)
-			logger.warn("write device address {}/{} reported back {}", serialNo, newAddress, chk);
+			logger.log(WARNING, "write device address {0}/{1} reported back {2}", serialNo, newAddress, chk);
 		return equals;
 	}
 
@@ -623,7 +625,7 @@ public class ManagementProceduresImpl implements ManagementProcedures
 			return;
 		}
 		catch (final KNXException e) {
-			logger.warn("setting programming mode via property failed, (" + e + "), trying via memory");
+			logger.log(WARNING, "setting programming mode via property failed, (" + e + "), trying via memory");
 		}
 
 		// read from memory where device keeps programming mode
@@ -716,7 +718,7 @@ public class ManagementProceduresImpl implements ManagementProcedures
 			throw new KNXIllegalArgumentException("bytes to read require a positive number");
 		// sanity check, at least emit a warning
 		// if (bytes > 4096)
-		// logger.warn("reading over 4K of device memory "
+		// logger.log(WARNING, "reading over 4K of device memory "
 		// + "(hope you know what you are doing)");
 
 		final Destination d = getOrCreateDestination(device);
@@ -906,7 +908,7 @@ public class ManagementProceduresImpl implements ManagementProcedures
 					tl.connect(d);
 				}
 				catch (final KNXTimeoutException e) {
-					logger.info("connect timeout during address scan for {}", d);
+					logger.log(INFO, "connect timeout during address scan for {0}", d);
 				}
 				// increased from 100 (the default) to minimize chance of overflow over FT1.2
 				waitFor(115);

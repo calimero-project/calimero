@@ -36,15 +36,19 @@
 
 package tuwien.auto.calimero.serial;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.lang.System.Logger;
 import java.time.Duration;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.Connection;
@@ -407,7 +411,7 @@ public class FT12Connection implements Connection<byte[]>
 			boolean ack = false;
 			boolean con = false;
 			for (int i = 0; i <= REPEAT_LIMIT; ++i) {
-				logger.trace("sending FT1.2 frame, {}blocking, attempt {}", (blocking ? "" : "non-"), (i + 1));
+				logger.log(TRACE, "sending FT1.2 frame, {0}blocking, attempt {2}", (blocking ? "" : "non-"), (i + 1));
 
 				// setup for L-Data.con
 				final boolean isLDataReq = (frame[0] & 0xff) == CEMILData.MC_LDATA_REQ;
@@ -466,7 +470,7 @@ public class FT12Connection implements Connection<byte[]>
 	{
 		if (state == CLOSED)
 			return;
-		logger.info("close serial port " + port + " - " + reason);
+		logger.log(INFO, "close serial port " + port + " - " + reason);
 
 		sendLock.lock();
 		try {
@@ -488,7 +492,7 @@ public class FT12Connection implements Connection<byte[]>
 			adapter.close();
 		}
 		catch (final Exception e) {
-			logger.warn("failed to close all serial I/O resources", e);
+			logger.log(WARNING, "failed to close all serial I/O resources", e);
 		}
 
 		fireConnectionClosed(user, reason);
@@ -513,7 +517,7 @@ public class FT12Connection implements Connection<byte[]>
 		try {
 			final byte[] reset = new byte[] { START_FIXED, INITIATOR | RESET, INITIATOR | RESET, END };
 			for (int i = 0; i <= REPEAT_LIMIT; ++i) {
-				logger.trace("send reset to BCU");
+				logger.log(TRACE, "send reset to BCU");
 				state = ACK_PENDING;
 				os.write(reset);
 				os.flush();
@@ -654,13 +658,13 @@ public class FT12Connection implements Connection<byte[]>
 						else if (c == START_FIXED)
 							readShortFrame();
 						else
-							logger.trace("received unexpected start byte 0x" + Integer.toHexString(c) + " - ignored");
+							logger.log(TRACE, "received unexpected start byte 0x" + Integer.toHexString(c) + " - ignored");
 					}
 				}
 			}
 			catch (final IOException | InterruptedException e) {
 				if (!quit) {
-					logger.warn("I/O error in FT1.2 receiver", e);
+					logger.log(WARNING, "I/O error in FT1.2 receiver", e);
 					close(false, "receiver communication failure");
 				}
 			}
@@ -691,7 +695,7 @@ public class FT12Connection implements Connection<byte[]>
 				if ((buf[0] & 0x30) == 0) {
 					sendAck();
 					final int fc = buf[0] & 0x0f;
-					logger.trace("received " + (fc == RESET ? "reset" : fc == REQ_STATUS
+					logger.log(TRACE, "received " + (fc == RESET ? "reset" : fc == REQ_STATUS
 							? "status" : "unknown function code "));
 					if (fc == RESET) {
 						sendFrameCount = FRAMECOUNT_BIT;
@@ -719,12 +723,12 @@ public class FT12Connection implements Connection<byte[]>
 			final int len = header[0] & 0xff;
 			final int lenCheck = header[1] & 0xff;
 			if (len != lenCheck) {
-				logger.debug("invalid frame header, length fields mismatch {} != {}", len, lenCheck);
+				logger.log(DEBUG, "invalid frame header, length fields mismatch {0} != {1}", len, lenCheck);
 				return false;
 			}
 			final int startMarker = header[2] & 0xff;
 			if (startMarker != START) {
-				logger.debug("invalid frame header, expected START: {}", Integer.toHexString(startMarker));
+				logger.log(DEBUG, "invalid frame header, expected START: {0}", Integer.toHexString(startMarker));
 				return false;
 			}
 
@@ -738,7 +742,7 @@ public class FT12Connection implements Connection<byte[]>
 					return false;
 
 				if (checksum(buf, 0, len) != chk)
-					logger.warn("invalid checksum in frame " + DataUnitBuilder.toHex(buf, " "));
+					logger.log(WARNING, "invalid checksum in frame " + DataUnitBuilder.toHex(buf, " "));
 				else {
 					sendAck();
 					lastChecksum = chk;
@@ -754,25 +758,25 @@ public class FT12Connection implements Connection<byte[]>
 				}
 			}
 			else
-				logger.warn("invalid frame, discarded " + read + " bytes: " + DataUnitBuilder.toHex(buf, " "));
+				logger.log(WARNING, "invalid frame, discarded " + read + " bytes: " + DataUnitBuilder.toHex(buf, " "));
 			return false;
 		}
 
 		private boolean checkCtrlField(final int c, final byte chk)
 		{
 			if ((c & (DIR_FROM_BAU | INITIATOR)) != (DIR_FROM_BAU | INITIATOR)) {
-				logger.warn("unexpected ctrl field 0x" + Integer.toHexString(c));
+				logger.log(WARNING, "unexpected ctrl field 0x" + Integer.toHexString(c));
 				return false;
 			}
 			if ((c & FRAMECOUNT_VALID) == FRAMECOUNT_VALID) {
 				if ((c & FRAMECOUNT_BIT) != rcvFrameCount) {
 					// ignore repeated frame
 					if (chk == lastChecksum) {
-						logger.trace("framecount and checksum indicate a repeated frame - ignored");
+						logger.log(TRACE, "framecount and checksum indicate a repeated frame - ignored");
 						return false;
 					}
 					// protocol discrepancy (Merten Instabus coupler)
-					logger.warn("toggle frame count bit");
+					logger.log(WARNING, "toggle frame count bit");
 					rcvFrameCount ^= FRAMECOUNT_BIT;
 				}
 			}

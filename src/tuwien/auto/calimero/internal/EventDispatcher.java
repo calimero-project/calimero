@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2021, 2021 B. Malinowsky
+    Copyright (c) 2021, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,6 +36,11 @@
 
 package tuwien.auto.calimero.internal;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
+import java.lang.System.Logger;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -44,8 +49,6 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.slf4j.Logger;
 
 class EventDispatcher<T extends Annotation> {
 	private static final Lookup lookup = MethodHandles.lookup();
@@ -95,22 +98,22 @@ class EventDispatcher<T extends Annotation> {
 			return;
 		final var paramTypes = method.getParameterTypes();
 		if (paramTypes.length != 1) {
-			logger.warn("cannot register {}: parameter count not 1", method);
+			logger.log(WARNING, "cannot register {0}: parameter count not 1", method);
 			return;
 		}
 		final var paramType = paramTypes[0];
 		if (!customEvents.containsKey(paramType)) {
-			logger.debug("unsupported event type {}", method);
+			logger.log(DEBUG, "unsupported event type {0}", method);
 			return;
 		}
 		try {
 			final var privateLookup = MethodHandles.privateLookupIn(listener.getClass(), lookup);
 			final var boundMethod = privateLookup.unreflect(method).bindTo(listener);
 			customEvents.get(paramType).add(new ListenerMH(listener, boundMethod));
-			logger.trace("registered {}", method);
+			logger.log(TRACE, "registered {0}", method);
 		}
 		catch (final Exception e) {
-			logger.warn("failed to register {}", method, e);
+			logger.log(WARNING, "failed to register {0}", method, e);
 		}
 	}
 
@@ -120,7 +123,7 @@ class EventDispatcher<T extends Annotation> {
 				lmh.mh.invoke(event);
 			}
 			catch (final Throwable e) {
-				logger.warn("invoking custom event", e);
+				logger.log(WARNING, "invoking custom event", e);
 			}
 		});
 	}

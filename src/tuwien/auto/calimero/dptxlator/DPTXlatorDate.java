@@ -36,6 +36,7 @@
 
 package tuwien.auto.calimero.dptxlator;
 
+import java.lang.System.Logger.Level;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -259,7 +260,7 @@ public class DPTXlatorDate extends DPTXlator
 			set(absYear(data[i + YEAR] & 0x7F), data[i + MONTH] & 0x0F, data[i + DAY] & 0x1F, buf, item++);
 			// check reserved bits
 			if ((data[i + YEAR] & ~0x7F) + (data[i + MONTH] & ~0x0F) + (data[i + DAY] & ~0x1F) != 0)
-				logger.warn("DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bit not 0");
+				logger.log(Level.WARNING, "DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bit not 0");
 		}
 		this.data = buf;
 	}

@@ -36,6 +36,10 @@
 
 package tuwien.auto.calimero.mgmt;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.TRACE;
+
+import java.lang.System.Logger;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -45,14 +49,12 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXRemoteException;
 import tuwien.auto.calimero.KNXTimeoutException;
 import tuwien.auto.calimero.link.KNXLinkClosedException;
 import tuwien.auto.calimero.link.KNXNetworkLink;
+import tuwien.auto.calimero.log.LogService;
 import tuwien.auto.calimero.secure.Keyring;
 import tuwien.auto.calimero.secure.Keyring.Interface;
 import tuwien.auto.calimero.secure.KnxSecureException;
@@ -63,7 +65,7 @@ import tuwien.auto.calimero.secure.Security;
  * Recovery requires the device tool keys in {@link Security} for accessing KNX devices.
  */
 public final class SecurityRecovery {
-	private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+	private static final Logger logger = LogService.getLogger(MethodHandles.lookup().lookupClass());
 
 	private final KNXNetworkLink link;
 	private final Security security;
@@ -148,7 +150,7 @@ public final class SecurityRecovery {
 						return seq;
 				}
 				catch (KNXTimeoutException | KNXRemoteException | KNXDisconnectException | KnxSecureException e) {
-					logger.debug("no last valid sequence number found for {} in device {}: {}", address, device, e.getMessage());
+					logger.log(DEBUG, "no last valid sequence number found for {0} in device {1}: {2}", address, device, e.getMessage());
 					// we continue with the next linked device
 				}
 			}
@@ -167,7 +169,7 @@ public final class SecurityRecovery {
 						lastValidSeqs.put(device, seq - 1);
 				}
 				catch (KNXTimeoutException | KNXRemoteException | KNXDisconnectException | KnxSecureException e) {
-					logger.debug("failed reading sequence number of {}: {}", device, e.getMessage());
+					logger.log(DEBUG, "failed reading sequence number of {0}: {1}", device, e.getMessage());
 				}
 			}
 		}
@@ -182,7 +184,7 @@ public final class SecurityRecovery {
 			throws KNXTimeoutException, KNXRemoteException, KNXDisconnectException, KNXLinkClosedException,
 			InterruptedException {
 
-		logger.trace("query sequence number of {}", dst.getAddress());
+		logger.log(TRACE, "query sequence number of {0}", dst.getAddress());
 		final var desc = mc.readPropertyDescription(dst, securityObject, 1, pidSeqSending, 0);
 
 		int objectIndex = desc.getObjectIndex();
@@ -200,7 +202,7 @@ public final class SecurityRecovery {
 			final IndividualAddress senderAddress) throws KNXTimeoutException, KNXRemoteException,
 			KNXDisconnectException, KNXLinkClosedException, InterruptedException {
 
-		logger.trace("query {} for last valid sequence number of {}", dst.getAddress(), senderAddress);
+		logger.log(TRACE, "query {0} for last valid sequence number of {1}", dst.getAddress(), senderAddress);
 		final var desc = mc.readPropertyDescription(dst, securityObject, 1, pidSecIaTable, 0);
 
 		int objectIndex = desc.getObjectIndex();

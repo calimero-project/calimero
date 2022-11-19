@@ -37,6 +37,7 @@
 package tuwien.auto.calimero.knxnetip.servicetype;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.System.Logger.Level;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -107,7 +108,7 @@ public class DescriptionResponse extends ServiceType
 				throw new KNXFormatException("response contains duplicate DIB type", type);
 			final DIB dib = parseDib(type, data, i, size);
 			if (dib == null)
-				logger.warn("skip unknown DIB in response of type {} and size {}", type, size);
+				logger.log(Level.WARNING, "skip unknown DIB in response of type {0} and size {1}", type, size);
 			else
 				dibs.put(type, dib);
 			i += size;

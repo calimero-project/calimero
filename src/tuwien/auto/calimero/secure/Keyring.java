@@ -36,10 +36,14 @@
 
 package tuwien.auto.calimero.secure;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static java.util.function.Predicate.isEqual;
 import static java.util.function.Predicate.not;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.System.Logger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.CharBuffer;
@@ -69,14 +73,12 @@ import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import tuwien.auto.calimero.GroupAddress;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXFormatException;
 import tuwien.auto.calimero.KNXIllegalArgumentException;
 import tuwien.auto.calimero.knxnetip.SecureConnection;
+import tuwien.auto.calimero.log.LogService;
 import tuwien.auto.calimero.secure.Keyring.Interface.Type;
 import tuwien.auto.calimero.xml.KNXMLException;
 import tuwien.auto.calimero.xml.XmlInputFactory;
@@ -355,7 +357,7 @@ public final class Keyring {
 
 	private static final byte[] emptyPwd = new byte[0];
 
-	private static final Logger logger = LoggerFactory.getLogger("calimero.keyring");
+	private static final Logger logger = LogService.getLogger("calimero.keyring");
 
 	private final String keyringUri;
 	private final char[] keyringPassword;
@@ -414,7 +416,7 @@ public final class Keyring {
 			project = reader.getAttributeValue(null, "Project");
 			final var createdBy = reader.getAttributeValue(null, "CreatedBy");
 			final var created = reader.getAttributeValue(null, "Created");
-			logger.debug("read keyring for project '{}', created by {} on {}", project, createdBy, created);
+			logger.log(DEBUG, "read keyring for project ''{0}'', created by {1} on {2}", project, createdBy, created);
 
 			passwordHash = hashKeyringPwd(keyringPassword);
 			createdHash = sha256(utf8Bytes(created));
@@ -427,7 +429,7 @@ public final class Keyring {
 					final boolean strictVerification = true;
 					if (strictVerification)
 						throw new KnxSecureException(msg);
-					logger.warn(msg);
+					logger.log(WARNING, msg);
 				}
 			}
 
@@ -445,7 +447,7 @@ public final class Keyring {
 				if (reader.getEventType() != XmlReader.START_ELEMENT) {
 					if (event == XmlReader.END_ELEMENT && "Interface".equals(reader.getLocalName()) && iface != null) {
 						iface.groups = Map.copyOf(iface.groups);
-						logger.trace("add {}", iface);
+						logger.log(TRACE, "add {0}", iface);
 						iface = null;
 					}
 					continue;
@@ -512,7 +514,7 @@ public final class Keyring {
 
 					final var device = new Device(addr, toolkey, pwd, auth, seq);
 					devices.put(addr, device);
-					logger.trace("add {}", device);
+					logger.log(TRACE, "add {0}", device);
 				}
 				else if ("GroupAddresses".equals(name)) {
 					inGroupAddresses = true;
@@ -523,7 +525,7 @@ public final class Keyring {
 					groups.put(addr, key);
 				}
 				else
-					logger.warn("keyring '" + keyringUri + "': skip unknown element '{}'", name);
+					logger.log(WARNING, "keyring ''{0}'': skip unknown element ''{1}''", keyringUri, name);
 			}
 
 			this.interfaces = Map.copyOf(interfaces);

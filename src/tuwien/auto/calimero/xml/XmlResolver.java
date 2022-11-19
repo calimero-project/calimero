@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2006, 2020 B. Malinowsky
+    Copyright (c) 2006, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.lang.System.Logger.Level;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
@@ -52,7 +53,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-import org.slf4j.LoggerFactory;
+import tuwien.auto.calimero.log.LogService;
 
 /**
  * Resolves resources during parsing XML.
@@ -86,7 +87,7 @@ public final class XmlResolver
 	{
 		try {
 			try {
-				LoggerFactory.getLogger("calimero.xml").trace("resolve {}", baseURI);
+				LogService.getLogger("calimero.xml").log(Level.TRACE, "resolve {0}", baseURI);
 				final URL loc = new URL(baseURI);
 				return loc.openConnection().getInputStream();
 			}

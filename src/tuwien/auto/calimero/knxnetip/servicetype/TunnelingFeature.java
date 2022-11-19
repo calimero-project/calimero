@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2018, 2021 B. Malinowsky
+    Copyright (c) 2018, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ package tuwien.auto.calimero.knxnetip.servicetype;
 import static tuwien.auto.calimero.ReturnCode.Success;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.System.Logger.Level;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
@@ -158,7 +159,7 @@ public final class TunnelingFeature implements tuwien.auto.calimero.ServiceType 
 		featureId = InterfaceFeature.values()[id - 1];
 		status = ReturnCode.of(bb.get() & 0xff);
 		if (status.code() > 0xf0)
-			ServiceType.logger.warn("feature {} responded with '{}'", featureId, status);
+			ServiceType.logger.log(Level.WARNING, "feature {0} responded with ''{1}''", featureId, status);
 		data = new byte[bb.remaining()];
 		bb.get(data);
 		validateFeatureValueLength();

@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2021, 2021 B. Malinowsky
+    Copyright (c) 2021, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,7 +36,13 @@
 
 package tuwien.auto.calimero.baos.ip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.io.IOException;
+import java.lang.System.Logger.Level;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -58,8 +64,8 @@ import tuwien.auto.calimero.baos.BaosService;
 import tuwien.auto.calimero.baos.BaosService.Property;
 import tuwien.auto.calimero.cemi.CEMI;
 import tuwien.auto.calimero.knxnetip.ClientConnection;
-import tuwien.auto.calimero.knxnetip.TcpConnection;
 import tuwien.auto.calimero.knxnetip.KNXConnectionClosedException;
+import tuwien.auto.calimero.knxnetip.TcpConnection;
 import tuwien.auto.calimero.knxnetip.servicetype.ErrorCodes;
 import tuwien.auto.calimero.knxnetip.servicetype.KNXnetIPHeader;
 import tuwien.auto.calimero.knxnetip.servicetype.PacketHelper;
@@ -67,7 +73,6 @@ import tuwien.auto.calimero.knxnetip.servicetype.ServiceAck;
 import tuwien.auto.calimero.knxnetip.servicetype.ServiceRequest;
 import tuwien.auto.calimero.knxnetip.util.CRI;
 import tuwien.auto.calimero.log.LogService;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 
 /**
  * KNX IP ObjectServer connection for connecting to BAOS-capable servers.
@@ -147,7 +152,7 @@ class ObjectServerConnection extends ClientConnection {
 			send(buf, dataEndpt);
 		}
 		catch (final IOException e) {
-			close(CloseEvent.INTERNAL, "communication failure", LogLevel.ERROR, e);
+			close(CloseEvent.INTERNAL, "communication failure", ERROR, e);
 			throw new KNXConnectionClosedException("connection closed", e);
 		}
 	}
@@ -192,18 +197,18 @@ class ObjectServerConnection extends ClientConnection {
 				final byte[] buf = PacketHelper.toPacket(new ServiceAck(serviceAck, channelId, seq, status));
 				send(buf, dataEndpt);
 				if (status == ErrorCodes.VERSION_NOT_SUPPORTED) {
-					close(CloseEvent.INTERNAL, "protocol version changed", LogLevel.ERROR, null);
+					close(CloseEvent.INTERNAL, "protocol version changed", ERROR, null);
 					return true;
 				}
 			}
 			else {
-				logger.warn("object server request with invalid rcv-seq {}, expected {}", seq, getSeqRcv());
+				logger.log(WARNING, "object server request with invalid rcv-seq {0}, expected {1}", seq, getSeqRcv());
 				return true;
 			}
 
 			// ignore repeated object server requests
 			if (repeated) {
-				logger.debug("skip object server request with rcv-seq {} (already received)", seq);
+				logger.log(DEBUG, "skip object server request with rcv-seq {0} (already received)", seq);
 				return true;
 			}
 
@@ -213,18 +218,18 @@ class ObjectServerConnection extends ClientConnection {
 		final var objSvrService = req.service();
 		if (objSvrService.isResponse() || objSvrService.subService() == BaosService.DatapointValueIndication
 				|| objSvrService.subService() == BaosService.ServerItemIndication) {
-			logger.trace("received request seq {} (channel {}) svc {}", req.getSequenceNumber(), channelId,
+			logger.log(TRACE, "received request seq {0} (channel {1}) svc {2}", req.getSequenceNumber(), channelId,
 					objSvrService);
 			fireFrameReceived(objSvrService);
 		}
 		else
-			logger.warn("received object server request - ignore {}", objSvrService);
+			logger.log(WARNING, "received object server request - ignore {0}", objSvrService);
 
 		return true;
 	}
 
 	@Override
-	protected void close(final int initiator, final String reason, final LogLevel level, final Throwable t) {
+	protected void close(final int initiator, final String reason, final Level level, final Throwable t) {
 		if (tcp) {
 //			closing = 2; // XXX needed?
 			cleanup(initiator, reason, level, t);

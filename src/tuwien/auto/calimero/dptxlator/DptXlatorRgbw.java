@@ -36,6 +36,7 @@
 
 package tuwien.auto.calimero.dptxlator;
 
+import java.lang.System.Logger.Level;
 import java.text.NumberFormat;
 import java.util.HashMap;
 import java.util.Map;
@@ -177,7 +178,7 @@ public class DptXlatorRgbw extends DPTXlator {
 
 	private String fromDpt(final int index) {
 		if (data[index * 6 + 4] != 0)
-			logger.warn("DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bits not 0");
+			logger.log(Level.WARNING, "DPT " + dpt.getID() + " " + dpt.getDescription() + ": reserved bits not 0");
 		return appendUnit(component(index, 0) + " " + component(index, 1) + " " + component(index, 2) + " " + component(index, 3));
 	}
 

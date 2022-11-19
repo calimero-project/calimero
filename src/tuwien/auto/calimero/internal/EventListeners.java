@@ -36,14 +36,16 @@
 
 package tuwien.auto.calimero.internal;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tuwien.auto.calimero.log.LogService;
+
 
 /**
  * Container for keeping event listeners.
@@ -81,7 +83,7 @@ public class EventListeners<T>
 	 */
 	public EventListeners()
 	{
-		this(LoggerFactory.getLogger("calimero"));
+		this(LogService.getLogger("calimero"));
 	}
 
 	/**
@@ -138,7 +140,7 @@ public class EventListeners<T>
 			}
 			catch (final RuntimeException rte) {
 				remove(l);
-				logger.error("removed event listener", rte);
+				logger.log(Level.ERROR, "removed event listener", rte);
 			}
 		}
 	}

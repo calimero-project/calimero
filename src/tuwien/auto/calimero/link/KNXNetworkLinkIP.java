@@ -36,6 +36,10 @@
 
 package tuwien.auto.calimero.link;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPConnection.BlockingMode.WaitForAck;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPConnection.BlockingMode.WaitForCon;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPTunnel.TunnelingLayer.LinkLayer;
@@ -386,9 +390,9 @@ public class KNXNetworkLinkIP extends AbstractLink<KNXnetIPConnection>
 					if (feature.featureId() == InterfaceFeature.ConnectionStatus) {
 						final var connected = feature.featureValue().get()[0] == 1;
 						if (connected)
-							logger.info("subnet connected");
+							logger.log(INFO, "subnet connected");
 						else
-							logger.warn("no connection to subnet");
+							logger.log(WARNING, "no connection to subnet");
 					}
 					if (feature.featureId() == InterfaceFeature.IndividualAddress)
 						setTunnelingAddress(feature);
@@ -398,7 +402,7 @@ public class KNXNetworkLinkIP extends AbstractLink<KNXnetIPConnection>
 				private boolean valid(final TunnelingFeature feature) {
 					final boolean valid = feature.status() == ReturnCode.Success;
 					if (!valid)
-						logger.warn("received {}", feature);
+						logger.log(WARNING, "received {0}", feature);
 					return valid;
 				}
 
@@ -511,14 +515,14 @@ public class KNXNetworkLinkIP extends AbstractLink<KNXnetIPConnection>
 	private void doSend(final CEMI msg, final boolean waitForCon)
 			throws KNXTimeoutException, KNXLinkClosedException {
 		try {
-			logger.debug("send {}{}", (waitForCon ? "(wait for confirmation) " : ""), msg);
+			logger.log(DEBUG, "send {0}{1}", (waitForCon ? "(wait for confirmation) " : ""), msg);
 			conn.send(msg, waitForCon ? WaitForCon : WaitForAck);
 
 			if (msg instanceof CEMILData)
-				logger.trace("send {}->{} succeeded", ((CEMILData) msg).getSource(),
+				logger.log(TRACE, "send {0}->{1} succeeded", ((CEMILData) msg).getSource(),
 						((CEMILData) msg).getDestination());
 			else
-				logger.trace("send {}->{}:{} succeeded", "local", conn.getRemoteAddress().getAddress(),
+				logger.log(TRACE, "send {0}->{1}:{2} succeeded", "local", conn.getRemoteAddress().getAddress(),
 						conn.getRemoteAddress().getPort());
 		}
 		catch (final InterruptedException e) {
@@ -562,7 +566,7 @@ public class KNXNetworkLinkIP extends AbstractLink<KNXnetIPConnection>
 			setMaxApduLength();
 		}
 		catch (KNXException | RuntimeException e) {
-			logger.warn("skip link configuration (use defaults)", e);
+			logger.log(WARNING, "skip link configuration (use defaults)", e);
 		}
 	}
 

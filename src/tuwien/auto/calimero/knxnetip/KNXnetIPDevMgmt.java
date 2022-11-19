@@ -36,7 +36,10 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.ERROR;
+
 import java.io.IOException;
+import java.lang.System.Logger.Level;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
@@ -58,7 +61,6 @@ import tuwien.auto.calimero.knxnetip.servicetype.ServiceAck;
 import tuwien.auto.calimero.knxnetip.servicetype.ServiceRequest;
 import tuwien.auto.calimero.knxnetip.util.CRI;
 import tuwien.auto.calimero.log.LogService;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 
 /**
  * KNXnet/IP connection for KNX local device management, communication on OSI layer 4 is done using UDP.
@@ -165,11 +167,11 @@ public class KNXnetIPDevMgmt extends ClientConnection
 				incSeqRcv();
 			}
 			else
-				logger.warn("received dev.mgmt request with rcv-seq {}, expected {} - ignored", seq, getSeqRcv());
+				logger.log(Level.WARNING, "received dev.mgmt request with rcv-seq {0}, expected {1} - ignored", seq, getSeqRcv());
 		}
 
 		if (status == ErrorCodes.VERSION_NOT_SUPPORTED) {
-			close(CloseEvent.INTERNAL, "protocol version changed", LogLevel.ERROR, null);
+			close(CloseEvent.INTERNAL, "protocol version changed", ERROR, null);
 			return true;
 		}
 		final CEMI cemi = req.service();

@@ -36,6 +36,11 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.DataUnitBuilder.toHex;
 import static tuwien.auto.calimero.knxnetip.Net.hostPort;
 import static tuwien.auto.calimero.knxnetip.SecureConnection.secureSymbol;
@@ -43,6 +48,7 @@ import static tuwien.auto.calimero.knxnetip.SecureConnection.secureSymbol;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.lang.System.Logger;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -75,9 +81,6 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.KNXFormatException;
 import tuwien.auto.calimero.KNXIllegalArgumentException;
@@ -89,7 +92,6 @@ import tuwien.auto.calimero.knxnetip.servicetype.KNXnetIPHeader;
 import tuwien.auto.calimero.knxnetip.servicetype.PacketHelper;
 import tuwien.auto.calimero.knxnetip.util.HPAI;
 import tuwien.auto.calimero.log.LogService;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 import tuwien.auto.calimero.secure.Keyring;
 import tuwien.auto.calimero.secure.Keyring.Interface.Type;
 import tuwien.auto.calimero.secure.KnxSecureException;
@@ -204,7 +206,7 @@ public final class TcpConnection implements Closeable {
 
 			sno = deriveSerialNumber(conn.localEndpoint());
 
-			logger = LoggerFactory.getLogger("calimero.knxnetip." + secureSymbol + " Session " + hostPort(conn.server));
+			logger = LogService.getLogger("calimero.knxnetip." + secureSymbol + " Session " + hostPort(conn.server));
 		}
 
 		/**
@@ -237,7 +239,7 @@ public final class TcpConnection implements Closeable {
 				conn.send(newStatusInfo(sessionId, nextSendSeq(), Close));
 			}
 			catch (final IOException e) {
-				logger.info("I/O error closing secure session {}", sessionId, e);
+				logger.log(INFO, "I/O error closing secure session {0}", sessionId, e);
 			}
 		}
 
@@ -293,7 +295,7 @@ public final class TcpConnection implements Closeable {
 				sessionStatus = Setup;
 				conn.inSessionRequestStage = this;
 
-				logger.debug("setup secure session with {}", hostPort);
+				logger.log(DEBUG, "setup secure session with {0}", hostPort);
 
 				initKeys();
 				conn.connect();
@@ -372,7 +374,7 @@ public final class TcpConnection implements Closeable {
 
 			if (svc == SecureSessionResponse) {
 				if (sessionState != SessionState.Idle) {
-					logger.warn("received session response in state {} - ignore", sessionState);
+					logger.log(WARNING, "received session response in state {0} - ignore", sessionState);
 					return true;
 				}
 				try {
@@ -380,12 +382,12 @@ public final class TcpConnection implements Closeable {
 					final byte[] auth = newSessionAuth(serverPublicKey);
 					sessionState = SessionState.Unauthenticated;
 					final byte[] packet = wrap(auth);
-					logger.debug("secure session {}, request access for user {}", sessionId, user);
+					logger.log(DEBUG, "secure session {0}, request access for user {1}", sessionId, user);
 					conn.send(packet);
 				}
 				catch (IOException | RuntimeException e) {
 					sessionStatus = AuthFailed;
-					logger.error("negotiating session key failed", e);
+					logger.log(ERROR, "negotiating session key failed", e);
 				}
 				synchronized (this) {
 					notifyAll();
@@ -403,14 +405,14 @@ public final class TcpConnection implements Closeable {
 						if (sessionStatus == AuthSuccess)
 							sessionState = SessionState.Authenticated;
 
-						LogService.log(logger, sessionStatus == AuthSuccess ? LogLevel.DEBUG : LogLevel.ERROR, "{} {}",
+						logger.log(sessionStatus == AuthSuccess ? DEBUG : ERROR, "{0} {1}",
 								SecureConnection.statusMsg(sessionStatus), this);
 						synchronized (this) {
 							notifyAll();
 						}
 					}
 					else if (sessionStatus == Timeout || sessionStatus == Unauthenticated) {
-						logger.error("{} {}", SecureConnection.statusMsg(sessionStatus), this);
+						logger.log(ERROR, "{0} {1}", SecureConnection.statusMsg(sessionStatus), this);
 						close();
 					}
 				}
@@ -418,7 +420,7 @@ public final class TcpConnection implements Closeable {
 					dispatchToConnection(plainHeader, packet, hdrLen, plainHeader.getTotalLength() - hdrLen);
 			}
 			else
-				logger.warn("received unsupported secure service type 0x{} - ignore", Integer.toHexString(svc));
+				logger.log(WARNING, "received unsupported secure service type 0x{0} - ignore", Integer.toHexString(svc));
 
 			return true;
 		}
@@ -433,7 +435,7 @@ public final class TcpConnection implements Closeable {
 						client.handleServiceType(header, data, offset, conn.server);
 					}
 					catch (KNXFormatException | IOException e) {
-						logger.warn("{} error processing {}", client, header, e);
+						logger.log(WARNING, "{0} error processing {1}", client, header, e);
 					}
 				return;
 			}
@@ -452,26 +454,26 @@ public final class TcpConnection implements Closeable {
 				if (connection != null) {
 					connection.handleServiceType(header, data, offset, conn.server);
 					if (header.getServiceType() == KNXnetIPHeader.DISCONNECT_RES) {
-						logger.trace("remove connection {}", connection);
+						logger.log(TRACE, "remove connection {0}", connection);
 						securedConnections.remove(channelId);
 					}
 				}
 				else
-					logger.warn("communication channel {} does not exist", channelId);
+					logger.log(WARNING, "communication channel {0} does not exist", channelId);
 			}
 			catch (KNXFormatException | IOException e) {
-				logger.warn("{} error processing {}", connection, header, e);
+				logger.log(WARNING, "{0} error processing {1}", connection, header, e);
 			}
 		}
 
 		private void sendKeepAlive() {
 			try {
-				logger.trace("sending keep-alive");
+				logger.log(TRACE, "sending keep-alive");
 				conn.send(newStatusInfo(sessionId, nextSendSeq(), KeepAlive));
 			}
 			catch (final IOException e) {
 				if (sessionState == SessionState.Authenticated && !conn.socket.isClosed()) {
-					logger.warn("error sending keep-alive: {}", e.getMessage());
+					logger.log(WARNING, "error sending keep-alive: {0}", e.getMessage());
 					close();
 					conn.close();
 				}
@@ -499,7 +501,7 @@ public final class TcpConnection implements Closeable {
 			if (tag != 0)
 				throw new KnxSecureException("expected message tag 0, received " + tag);
 			final byte[] knxipPacket = (byte[]) fields[4];
-			logger.trace("received (seq {} S/N {}) {}", seq, sn, toHex(knxipPacket, " "));
+			logger.log(TRACE, "received (seq {0} S/N {1}) {2}", seq, sn, toHex(knxipPacket, " "));
 			return knxipPacket;
 		}
 
@@ -531,7 +533,7 @@ public final class TcpConnection implements Closeable {
 
 			final boolean skipDeviceAuth = Arrays.equals(deviceAuthKey.getEncoded(), new byte[16]);
 			if (skipDeviceAuth) {
-				logger.warn("skipping device authentication of {} (no device key)", hostPort(remote));
+				logger.log(WARNING, "skipping device authentication of {0} (no device key)", hostPort(remote));
 			}
 			else {
 				final ByteBuffer mac = SecureConnection.decrypt(buffer, deviceAuthKey,
@@ -588,7 +590,7 @@ public final class TcpConnection implements Closeable {
 
 		private byte[] cbcMacSimple(final Key secretKey, final byte[] data, final int offset, final int length) {
 			final byte[] log = Arrays.copyOfRange(data, offset, offset + length);
-			logger.trace("authenticating (length {}): {}", length, toHex(log, " "));
+			logger.log(TRACE, "authenticating (length {0}): {1}", length, toHex(log, " "));
 
 			try {
 				final var cipher = Cipher.getInstance("AES/CBC/NoPadding");
@@ -657,7 +659,7 @@ public final class TcpConnection implements Closeable {
 		this.server = server;
 		socket = new Socket();
 		localEndpoint = new InetSocketAddress(0);
-		logger = LoggerFactory.getLogger("calimero.knxnetip.tcp " + hostPort(server));
+		logger = LogService.getLogger("calimero.knxnetip.tcp " + hostPort(server));
 	}
 
 	protected TcpConnection(final InetSocketAddress local, final InetSocketAddress server) {
@@ -797,7 +799,7 @@ public final class TcpConnection implements Closeable {
 						}
 					}
 					catch (KNXFormatException | KnxSecureException e) {
-						logger.warn("received invalid frame", e);
+						logger.log(WARNING, "received invalid frame", e);
 						offset = 0;
 					}
 				}
@@ -813,7 +815,7 @@ public final class TcpConnection implements Closeable {
 		}
 		catch (IOException | RuntimeException e) {
 			if (!socket.isClosed())
-				logger.error("receiver communication failure", e);
+				logger.log(ERROR, "receiver communication failure", e);
 		}
 		finally {
 			close();
@@ -833,7 +835,7 @@ public final class TcpConnection implements Closeable {
 		if (session != null)
 			session.acceptServiceType(header, data, offset, length);
 		else
-			logger.warn("session {} does not exist", sessionId);
+			logger.log(WARNING, "session {0} does not exist", sessionId);
 	}
 
 	private void dispatchToConnection(final KNXnetIPHeader header, final byte[] data, final int offset)
@@ -860,7 +862,7 @@ public final class TcpConnection implements Closeable {
 				unsecuredConnections.remove(channelId);
 		}
 		else
-			logger.warn("communication channel {} does not exist", channelId);
+			logger.log(WARNING, "communication channel {0} does not exist", channelId);
 	}
 
 	private static int channelId(final KNXnetIPHeader header, final byte[] data, final int offset) {

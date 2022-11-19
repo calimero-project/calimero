@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2006, 2018 B. Malinowsky
+    Copyright (c) 2006, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,16 +36,18 @@
 
 package tuwien.auto.calimero.xml;
 
+import static java.lang.System.Logger.Level.TRACE;
+
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.lang.System.Logger;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tuwien.auto.calimero.log.LogService;
 
 /**
  * Creates XML stream readers for working with XML resources. The factory tries to obtain a platform
@@ -56,7 +58,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class XmlInputFactory // extends XMLInputFactory
 {
-	private static final Logger l = LoggerFactory.getLogger("calimero.xml");
+	private static final Logger l = LogService.getLogger("calimero.xml");
 
 	private final Map<String, Object> config = new HashMap<>();
 	private static final String RESOLVER = "javax.xml.stream.resolver";
@@ -94,11 +96,11 @@ public final class XmlInputFactory // extends XMLInputFactory
 	{
 		try {
 			final XmlStreamReaderProxy r = XmlStreamReaderProxy.createXmlReader(is, is);
-			l.trace("using StaX XMLStreamReader {}", r.r.getClass().getName());
+			l.log(TRACE, "using StaX XMLStreamReader {0}", r.r.getClass().getName());
 			return r;
 		}
 		catch (Exception | Error e) {
-			l.trace("no StaX implementation found ({}), using internal XMLStreamReader", e.toString());
+			l.log(TRACE, "no StaX implementation found ({0}), using internal XMLStreamReader", e.toString());
 			// we fall back on our own minimal implementation
 		}
 		return new DefaultXmlReader(resolver.getInputReader(is), true);
@@ -108,11 +110,11 @@ public final class XmlInputFactory // extends XMLInputFactory
 	{
 		try {
 			final XmlStreamReaderProxy r = XmlStreamReaderProxy.createXmlReader(reader);
-			l.trace("using StaX XMLStreamReader {}", r.r.getClass().getName());
+			l.log(TRACE, "using StaX XMLStreamReader {0}", r.r.getClass().getName());
 			return r;
 		}
 		catch (Exception | Error e) {
-			l.trace("no StaX implementation found ({}), using internal XMLStreamReader", e.toString());
+			l.log(TRACE, "no StaX implementation found ({0}), using internal XMLStreamReader", e.toString());
 			// we fall back on our own minimal implementation
 		}
 		return new DefaultXmlReader(reader, false);

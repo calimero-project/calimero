@@ -36,6 +36,9 @@
 
 package tuwien.auto.calimero.dptxlator;
 
+import static java.lang.System.Logger.Level.ERROR;
+
+import java.lang.System.Logger.Level;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -125,7 +128,7 @@ public class DptXlatorMeteringValue extends DPTXlator
 			data = toDpt(dimensionlessCounter, value);
 		}
 		catch (final KNXFormatException e) {
-			logger.error("{} {} coding {} (value {}) should alway have correct format", dpt.getID(),
+			logger.log(ERROR, "{0} {1} coding {2} (value {3}) should alway have correct format", dpt.getID(),
 					dpt.getDescription(), binary(dimensionlessCounter), value, e);
 		}
 	}
@@ -241,13 +244,13 @@ public class DptXlatorMeteringValue extends DPTXlator
 		try {
 			final int exp = coding(coding);
 			final double result = Math.pow(10, exp) * cv.getNumericValue();
-			logger.info("{} {} '{}' {} (exp {}) value {} {}", dpt.getID(), dpt.getDescription(), description,
-					binary(coding), exp, result, unit);
+			logger.log(Level.INFO, "{0} {1} ''{2}'' {3} (exp {4}) value {5} {6}", dpt.getID(), dpt.getDescription(),
+					description, binary(coding), exp, result, unit);
 			return result;
 		}
 		catch (final KNXFormatException e) {
 			// TODO implementation assumes this does not happen (it could, because we don't validate knx data)
-			logger.error("{} {} unsupported coding {}", dpt.getID(), dpt.getDescription(), binary(coding));
+			logger.log(ERROR, "{0} {1} unsupported coding {2}", dpt.getID(), dpt.getDescription(), binary(coding));
 			return cv.getNumericValue();
 		}
 	}

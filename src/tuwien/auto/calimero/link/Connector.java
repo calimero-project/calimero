@@ -36,6 +36,11 @@
 
 package tuwien.auto.calimero.link;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.WARNING;
+
+import java.lang.System.Logger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,9 +49,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.KNXAddress;
@@ -58,6 +60,7 @@ import tuwien.auto.calimero.Priority;
 import tuwien.auto.calimero.cemi.CEMILData;
 import tuwien.auto.calimero.internal.Executor;
 import tuwien.auto.calimero.link.medium.KNXMediumSettings;
+import tuwien.auto.calimero.log.LogService;
 
 /**
  * Connector for KNX network links.
@@ -194,7 +197,7 @@ public final class Connector
 			catch (final KNXException e) {
 				if (!connector.initialError)
 					throw e;
-				logger().error("initial connection attempt", e);
+				logger().log(ERROR, "initial connection attempt", e);
 				scheduleConnect(connector.maxAttempts - 1);
 			}
 		}
@@ -386,16 +389,16 @@ public final class Connector
 						maxSuffix = " (no max)";
 					else
 						maxSuffix = "/" + max + " (" + remaining + " remaining)";
-					logger().debug("execute scheduled connect {}{}", attempt, maxSuffix);
+					logger().log(DEBUG, "execute scheduled connect {0}{1}", attempt, maxSuffix);
 					connect();
 				}
 				catch (KNXException | RuntimeException | InterruptedException e) {
 					if (attempt == 1)
-						logger().warn("connection attempt {}", attempt, e);
+						logger().log(WARNING, "connection attempt {0}", attempt, e);
 					else {
 						final Throwable cause = e.getCause();
 						final String detail = cause != null && cause.getMessage() != null ? " (" + cause.getMessage() + ")" : "";
-						logger().warn("connection attempt {}: {}{}", attempt, e.getMessage(), detail);
+						logger().log(WARNING, "connection attempt {0}: {1}{2}", attempt, e.getMessage(), detail);
 					}
 					scheduleConnect(remaining);
 				}
@@ -476,7 +479,7 @@ public final class Connector
 
 		private Logger logger()
 		{
-			return LoggerFactory.getLogger("calimero.link." + getName());
+			return LogService.getLogger("calimero.link." + getName());
 		}
 	}
 }

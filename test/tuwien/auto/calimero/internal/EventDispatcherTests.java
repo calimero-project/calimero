@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2021, 2021 B. Malinowsky
+    Copyright (c) 2021, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,14 +39,14 @@ package tuwien.auto.calimero.internal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 
 import tuwien.auto.calimero.link.LinkEvent;
+import tuwien.auto.calimero.log.LogService;
 
 class EventDispatcherTests {
 
 	private final EventDispatcher<?> ed = new EventDispatcher<>(LinkEvent.class,
-			LoggerFactory.getLogger(EventDispatcherTests.class));
+			LogService.getLogger(EventDispatcherTests.class));
 
 	@Test
 	void unregisterCustomEvents() {

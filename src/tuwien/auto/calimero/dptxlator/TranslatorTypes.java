@@ -36,6 +36,9 @@
 
 package tuwien.auto.calimero.dptxlator;
 
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static java.util.Collections.emptyList;
 
 import java.lang.reflect.Field;
@@ -263,7 +266,7 @@ public final class TranslatorTypes
 				throw new KNXFormatException("failed to init translator", dptId);
 			}
 			catch (final NoSuchMethodException e) {
-				DPTXlator.logger.error("DPT translator is required to have a public constructor(String dptId)");
+				DPTXlator.logger.log(ERROR, "DPT translator is required to have a public constructor(String dptId)");
 				throw new KNXException("interface specification error at translator");
 			}
 			catch (final Exception e) {
@@ -371,7 +374,7 @@ public final class TranslatorTypes
 				addTranslator("tuwien.auto.calimero.dptxlator." + x);
 		}
 		catch (final Exception e) {
-			DPTXlator.logger.error("failed to initialize list of available DPT translators", e);
+			DPTXlator.logger.log(ERROR, "failed to initialize list of available DPT translators", e);
 		}
 	}
 
@@ -395,11 +398,11 @@ public final class TranslatorTypes
 			final String desc = descriptionFor(x) + " (main number " + mainNumber + ")";
 
 			map.put(mainNumber, new MainType(mainNumber, x, desc));
-			DPTXlator.logger.trace("loaded DPT translator for {}", desc);
+			DPTXlator.logger.log(TRACE, "loaded DPT translator for {0}", desc);
 		}
 		catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InvocationTargetException
 				| NoSuchMethodException | SecurityException e) {
-			DPTXlator.logger.warn("lookup DPT translator class {}", className, e);
+			DPTXlator.logger.log(WARNING, "lookup DPT translator class {0}", className, e);
 		}
 	}
 

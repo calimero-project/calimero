@@ -36,9 +36,15 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.knxnetip.Net.hostPort;
 
 import java.io.IOException;
+import java.lang.System.Logger.Level;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -69,7 +75,6 @@ import tuwien.auto.calimero.knxnetip.util.CRI;
 import tuwien.auto.calimero.knxnetip.util.HPAI;
 import tuwien.auto.calimero.knxnetip.util.TunnelCRD;
 import tuwien.auto.calimero.log.LogService;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 
 /**
  * Base implementation for client tunneling, device management, and routing.
@@ -184,7 +189,7 @@ public abstract class ClientConnection extends ConnectionBase
 			}
 
 			final var lsa = localSocketAddress();
-			logger.debug("establish connection from {} to {} ({})", hostPort(lsa), hostPort(ctrlEndpt), tcp ? "tcp" : "udp");
+			logger.log(DEBUG, "establish connection from {0} to {1} ({2})", hostPort(lsa), hostPort(ctrlEndpt), tcp ? "tcp" : "udp");
 			// HPAI throws if wildcard local address (0.0.0.0) is supplied
 			final var hpai = tcp ? HPAI.Tcp : new HPAI(HPAI.IPV4_UDP, useNat ? null : lsa);
 			final byte[] buf = PacketHelper.toPacket(protocolVersion(), new ConnectRequest(cri, hpai, hpai));
@@ -192,14 +197,14 @@ public abstract class ClientConnection extends ConnectionBase
 		}
 		catch (IOException | SecurityException e) {
 			closeSocket();
-			logger.error("communication failure on connect", e);
+			logger.log(ERROR, "communication failure on connect", e);
 			if (local.getAddress().isLoopbackAddress())
-				logger.warn("local endpoint uses loopback address ({}), try with a different IP address",
+				logger.log(WARNING, "local endpoint uses loopback address ({0}), try with a different IP address",
 						local.getAddress());
 			throw new KNXException("connecting from " + hostPort(local) + " to " + hostPort(ctrlEndpt) + ": " + e.getMessage());
 		}
 
-		logger.debug("wait for connect response from {} ...", hostPort(ctrlEndpt));
+		logger.log(DEBUG, "wait for connect response from {0} ...", hostPort(ctrlEndpt));
 		if (!tcp)
 			startReceiver();
 		try {
@@ -210,7 +215,7 @@ public abstract class ClientConnection extends ConnectionBase
 				String optionalConnectionInfo = "";
 				if (tunnelingAddress != null)
 					optionalConnectionInfo = ", tunneling address " + tunnelingAddress;
-				logger.info("connection established (data endpoint {}:{}, channel {}{})",
+				logger.log(INFO, "connection established (data endpoint {0}:{1}, channel {2}{3})",
 						dataEndpt.getAddress().getHostAddress(), dataEndpt.getPort(), channelId,
 						optionalConnectionInfo);
 				return;
@@ -241,7 +246,7 @@ public abstract class ClientConnection extends ConnectionBase
 	}
 
 	@Override
-	protected void cleanup(final int initiator, final String reason, final LogLevel level,
+	protected void cleanup(final int initiator, final String reason, final Level level,
 		final Throwable t)
 	{
 		// we want close/cleanup be called only once
@@ -251,7 +256,7 @@ public abstract class ClientConnection extends ConnectionBase
 			cleanup = true;
 		}
 
-		LogService.log(logger, level, "close connection - " + reason, t);
+		logger.log(level, "close connection - " + reason, t);
 		heartbeat.quit();
 		stopReceiver();
 		closeSocket();
@@ -269,7 +274,7 @@ public abstract class ClientConnection extends ConnectionBase
 		// throw on no answer
 		if (internalState == ClientConnection.CEMI_CON_PENDING) {
 			final KNXTimeoutException e = new KNXTimeoutException("no confirmation reply received for " + keepForCon);
-			logger.warn("response timeout waiting for confirmation", e);
+			logger.log(WARNING, "response timeout waiting for confirmation", e);
 			internalState = OK;
 			throw e;
 		}
@@ -288,7 +293,7 @@ public abstract class ClientConnection extends ConnectionBase
 	{
 		final int svc = h.getServiceType();
 		if (svc == KNXnetIPHeader.CONNECT_REQ)
-			logger.warn("received connect request - ignored");
+			logger.log(WARNING, "received connect request - ignored");
 		else if (svc == KNXnetIPHeader.CONNECT_RES) {
 			final ConnectResponse res = new ConnectResponse(data, offset);
 			// address info is only != null on no error
@@ -299,7 +304,7 @@ public abstract class ClientConnection extends ConnectionBase
 					if (!ep.isRouteBack()) {
 						final String msg = "connect response from " + src + ":" + port
 								+ " does not contain route-back data endpoint";
-						close(CloseEvent.INTERNAL, msg, LogLevel.ERROR, null);
+						close(CloseEvent.INTERNAL, msg, ERROR, null);
 						return true;
 					}
 					dataEndpt = new InetSocketAddress(src, port);
@@ -328,7 +333,7 @@ public abstract class ClientConnection extends ConnectionBase
 			setStateNotify(ACK_ERROR);
 		}
 		else if (svc == KNXnetIPHeader.CONNECTIONSTATE_REQ)
-			logger.warn("received connection state request - ignored");
+			logger.log(WARNING, "received connection state request - ignored");
 		else if (svc == KNXnetIPHeader.CONNECTIONSTATE_RES) {
 			if (checkVersion(h))
 				heartbeat.setResponse(new ConnectionstateResponse(data, offset));
@@ -340,7 +345,7 @@ public abstract class ClientConnection extends ConnectionBase
 		else if (svc == KNXnetIPHeader.DISCONNECT_RES) {
 			final DisconnectResponse res = new DisconnectResponse(data, offset);
 			if (res.getStatus() != ErrorCodes.NO_ERROR)
-				logger.warn("received disconnect response status 0x"
+				logger.log(WARNING, "received disconnect response status 0x"
 						+ Integer.toHexString(res.getStatus()) + " ("
 						+ ErrorCodes.getErrorMessage(res.getStatus()) + ")");
 			// finalize closing
@@ -356,7 +361,7 @@ public abstract class ClientConnection extends ConnectionBase
 			if (!checkChannelId(res.getChannelID(), "acknowledgment"))
 				return true;
 			if (res.getSequenceNumber() != getSeqSend())
-				logger.warn("received service acknowledgment with wrong send sequence "
+				logger.log(WARNING, "received service acknowledgment with wrong send sequence "
 						+ res.getSequenceNumber() + ", expected " + getSeqSend() + " - ignored");
 			else {
 				if (!checkVersion(h))
@@ -364,11 +369,10 @@ public abstract class ClientConnection extends ConnectionBase
 				incSeqSend();
 				// update state and notify our lock
 				setStateNotify(res.getStatus() == ErrorCodes.NO_ERROR ? CEMI_CON_PENDING : ACK_ERROR);
-				if (logger.isTraceEnabled())
-					logger.trace("received service ack {} from {} (channel {})",
-							res.getSequenceNumber(), hostPort(ctrlEndpt), channelId);
+				logger.log(TRACE, "received service ack {0} from {1} (channel {2})",
+						res.getSequenceNumber(), hostPort(ctrlEndpt), channelId);
 				if (internalState == ACK_ERROR)
-					logger.warn("received service acknowledgment status " + res.getStatusString());
+					logger.log(WARNING, "received service acknowledgment status " + res.getStatusString());
 			}
 		}
 		else
@@ -398,10 +402,10 @@ public abstract class ClientConnection extends ConnectionBase
 				send(buf, ctrlEndpt);
 			}
 			catch (final IOException e) {
-				logger.warn("communication failure", e);
+				logger.log(WARNING, "communication failure", e);
 			}
 			finally {
-				cleanup(CloseEvent.SERVER_REQUEST, "server request", LogLevel.INFO, null);
+				cleanup(CloseEvent.SERVER_REQUEST, "server request", INFO, null);
 			}
 		}
 	}
@@ -412,7 +416,7 @@ public abstract class ClientConnection extends ConnectionBase
 	 * Checks for supported protocol version in KNX header.
 	 * <p>
 	 * On unsupported version,
-	 * {@link ClientConnection#close(int, String, LogLevel, Throwable)} is invoked.
+	 * {@link ClientConnection#close(int, String, Level, Throwable)} is invoked.
 	 *
 	 * @param h KNX header to check
 	 * @return {@code true} on supported version, {@code false} otherwise
@@ -421,7 +425,7 @@ public abstract class ClientConnection extends ConnectionBase
 	{
 		if (h.getVersion() != protocolVersion()) {
 			status = "protocol version changed";
-			close(CloseEvent.INTERNAL, "protocol version changed", LogLevel.ERROR, null);
+			close(CloseEvent.INTERNAL, "protocol version changed", ERROR, null);
 			return false;
 		}
 		return true;
@@ -434,7 +438,7 @@ public abstract class ClientConnection extends ConnectionBase
 		setState(CLOSED);
 		String msg = thrown.getMessage();
 		msg = msg != null && msg.length() > 0 ? msg : thrown.getClass().getSimpleName();
-		logger.error("establishing connection failed, {}", msg);
+		logger.log(ERROR, "establishing connection failed, {0}", msg);
 	}
 
 	private void closeSocket() {
@@ -465,7 +469,7 @@ public abstract class ClientConnection extends ConnectionBase
 					Thread.sleep(HEARTBEAT_INTERVAL * 1000);
 					int i = 0;
 					for (; i < MAX_REQUEST_ATTEMPTS; i++) {
-						logger.trace("sending connection state request, attempt " + (i + 1));
+						logger.log(TRACE, "sending connection state request, attempt " + (i + 1));
 						lock.lock();
 						try {
 							send(buf, ctrlEndpt);
@@ -478,7 +482,7 @@ public abstract class ClientConnection extends ConnectionBase
 					}
 					// disconnect on no reply
 					if (i == MAX_REQUEST_ATTEMPTS) {
-						close(CloseEvent.INTERNAL, "no heartbeat response", LogLevel.WARN, null);
+						close(CloseEvent.INTERNAL, "no heartbeat response", WARNING, null);
 						break;
 					}
 				}
@@ -487,7 +491,7 @@ public abstract class ClientConnection extends ConnectionBase
 				// simply let this thread exit
 			}
 			catch (final IOException e) {
-				close(CloseEvent.INTERNAL, "heartbeat communication failure", LogLevel.ERROR, e);
+				close(CloseEvent.INTERNAL, "heartbeat communication failure", ERROR, e);
 			}
 		}
 
@@ -520,7 +524,7 @@ public abstract class ClientConnection extends ConnectionBase
 				}
 			}
 			else
-				logger.warn("connection state response: {} (channel {})", res.getStatusString(), channelId);
+				logger.log(WARNING, "connection state response: {0} (channel {1})", res.getStatusString(), channelId);
 		}
 	}
 }

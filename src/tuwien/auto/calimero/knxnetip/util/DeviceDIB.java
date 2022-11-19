@@ -39,6 +39,7 @@ package tuwien.auto.calimero.knxnetip.util;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.System.Logger.Level;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -170,7 +171,7 @@ public class DeviceDIB extends DIB
 			throw new KNXIllegalArgumentException("device status out of range [0..255]");
 		status = deviceStatus;
 		if (status > 1)
-			CRBase.logger.warn("device DIB \"" + friendlyName + "\": device status (" + status
+			CRBase.logger.log(Level.WARNING, "device DIB \"" + friendlyName + "\": device status (" + status
 					+ ") uses reserved bits");
 
 		if (knxMedium != MEDIUM_TP1 && knxMedium != MEDIUM_PL110 && knxMedium != MEDIUM_RF && knxMedium != MEDIUM_KNXIP)

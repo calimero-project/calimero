@@ -36,10 +36,16 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPConnection.BlockingMode.NonBlocking;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.lang.System.Logger.Level;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
@@ -83,7 +89,6 @@ import tuwien.auto.calimero.knxnetip.servicetype.SearchRequest;
 import tuwien.auto.calimero.knxnetip.servicetype.SearchResponse;
 import tuwien.auto.calimero.knxnetip.util.HPAI;
 import tuwien.auto.calimero.log.LogService;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 
 /**
  * KNXnet/IP connection using the KNXnet/IP routing protocol.
@@ -225,7 +230,7 @@ public class KNXnetIPRouting extends ConnectionBase
 				synchronized (loopbackFrames) {
 					loopbackFrames.add((CEMILData) frame);
 				}
-				logger.trace("add to multicast loopback frame buffer: {}", frame);
+				logger.log(TRACE, "add to multicast loopback frame buffer: {0}", frame);
 			}
 			checkLastTx();
 			// filter IP system broadcasts and always send them unsecured
@@ -233,7 +238,7 @@ public class KNXnetIPRouting extends ConnectionBase
 				final var buf = ByteBuffer.wrap(PacketHelper.toPacket(new RoutingSystemBroadcast(frame)));
 				final InetSocketAddress dst = new InetSocketAddress(systemBroadcast, DEFAULT_PORT);
 				enforceDatagramRateLimit();
-				logger.trace("sending cEMI frame, SBC {} {}", NonBlocking, DataUnitBuilder.toHex(buf.array(), " "));
+				logger.log(TRACE, "sending cEMI frame, SBC {0} {1}", NonBlocking, DataUnitBuilder.toHex(buf.array(), " "));
 				if (dcSysBcast != null)
 					dcSysBcast.send(buf, dst);
 				else
@@ -248,7 +253,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			setState(OK);
 		}
 		catch (final IOException e) {
-			close(CloseEvent.INTERNAL, "communication failure", LogLevel.ERROR, e);
+			close(CloseEvent.INTERNAL, "communication failure", ERROR, e);
 			throw new KNXConnectionClosedException("connection closed (" + e.getMessage() + ")");
 		}
 		catch (final KNXTimeoutException ignore) {}
@@ -286,7 +291,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			dc.setOption(StandardSocketOptions.IP_MULTICAST_TTL, hopCount);
 		}
 		catch (final IOException e) {
-			logger.error("failed to set hop count", e);
+			logger.log(ERROR, "failed to set hop count", e);
 		}
 	}
 
@@ -302,7 +307,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			return dc.getOption(StandardSocketOptions.IP_MULTICAST_TTL);
 		}
 		catch (final IOException e) {
-			logger.error("failed to get hop count", e);
+			logger.log(ERROR, "failed to get hop count", e);
 		}
 		return 1;
 	}
@@ -383,7 +388,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			else
 				setNetif = Net.defaultNetif;
 
-			logger.debug("join multicast group {} on {}", multicast.getHostAddress(), setNetif.getName());
+			logger.log(DEBUG, "join multicast group {0} on {1}", multicast.getHostAddress(), setNetif.getName());
 			dc.join(multicast, setNetif);
 			if (dcSysBcast != null)
 				dcSysBcast.join(systemBroadcast, setNetif);
@@ -395,7 +400,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			if (dcSysBcast != null)
 				dcSysBcast.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, useMulticastLoopback);
 			loopbackEnabled = usesMulticastLoopback();
-			logger.info("multicast loopback mode " + (loopbackEnabled ? "enabled" : "disabled"));
+			logger.log(INFO, "multicast loopback mode " + (loopbackEnabled ? "enabled" : "disabled"));
 		}
 		catch (final IOException e) {
 			closeSilently(dc, e);
@@ -414,9 +419,9 @@ public class KNXnetIPRouting extends ConnectionBase
 					try {
 						final KNXnetIPHeader h = new KNXnetIPHeader(data, offset);
 						if (h.getTotalLength() > length)
-							logger.warn("received frame length " + length + " for " + h + " - ignored");
+							logger.log(WARNING, "received frame length " + length + " for " + h + " - ignored");
 						else if (h.getVersion() != KNXNETIP_VERSION_10)
-							close(CloseEvent.INTERNAL, "protocol version changed", LogLevel.ERROR, null);
+							close(CloseEvent.INTERNAL, "protocol version changed", ERROR, null);
 						else if (h.getServiceType() == KNXnetIPHeader.SEARCH_REQ
 								|| h.getServiceType() == KNXnetIPHeader.SearchRequest)
 							searchRequest(source, h, data, offset + h.getStructLength());
@@ -424,7 +429,7 @@ public class KNXnetIPRouting extends ConnectionBase
 							systemBroadcast(h, data, offset + h.getStructLength());
 					}
 					catch (KNXFormatException | IOException | RuntimeException e) {
-						logger.warn("received invalid frame", e);
+						logger.log(WARNING, "received invalid frame", e);
 					}
 				}
 			};
@@ -471,7 +476,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			final int offset, final InetAddress src, final int port) throws KNXFormatException, IOException {
 		final int svc = h.getServiceType();
 		if (h.getVersion() != KNXNETIP_VERSION_10)
-			close(CloseEvent.INTERNAL, "protocol version changed", LogLevel.ERROR, null);
+			close(CloseEvent.INTERNAL, "protocol version changed", ERROR, null);
 		else if (svc == KNXnetIPHeader.ROUTING_IND) {
 			final RoutingIndication ind = new RoutingIndication(data, offset, h.getTotalLength()
 					- h.getStructLength());
@@ -497,7 +502,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			searchRequest(new InetSocketAddress(src, port), h, data, offset);
 		else if (svc == GiraUnsupportedSvcType) {
 			if (!loggedGiraUnsupportedSvcType)
-				logger.warn("received unsupported Gira-specific service type 0x538, will be silently ignored: {}",
+				logger.log(WARNING, "received unsupported Gira-specific service type 0x538, will be silently ignored: {0}",
 						DataUnitBuilder.toHex(data, " "));
 			loggedGiraUnsupportedSvcType = true;
 		}
@@ -514,7 +519,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			return;
 		final HPAI endpoint = SearchRequest.from(h, data, offset).getEndpoint();
 		if (endpoint.getHostProtocol() != HPAI.IPV4_UDP) {
-			logger.warn("KNX IP has protocol support for UDP/IP only");
+			logger.log(WARNING, "KNX IP has protocol support for UDP/IP only");
 			return;
 		}
 		final var response = callback.apply(h, ByteBuffer.wrap(data).position(offset));
@@ -533,14 +538,14 @@ public class KNXnetIPRouting extends ConnectionBase
 	}
 
 	@Override
-	protected void close(final int initiator, final String reason, final LogLevel level, final Throwable t) {
+	protected void close(final int initiator, final String reason, final Level level, final Throwable t) {
 		synchronized (this) {
 			if (closing > 0)
 				return;
 			closing = 1;
 		}
 
-		LogService.log(logger, level, "close connection - " + reason, t);
+		logger.log(level, "close connection - " + reason, t);
 
 		closeSilently(dc, null);
 		closeSilently(dcSysBcast, null);
@@ -563,11 +568,11 @@ public class KNXnetIPRouting extends ConnectionBase
 	{
 		final int state = getState();
 		if (state == CLOSED) {
-			logger.warn("send invoked on closed connection - aborted");
+			logger.log(WARNING, "send invoked on closed connection - aborted");
 			throw new KNXConnectionClosedException("connection closed");
 		}
 		if (state < 0) {
-			logger.error("send invoked in error state " + state + " - aborted");
+			logger.log(ERROR, "send invoked in error state " + state + " - aborted");
 			throw new IllegalStateException("in error state, send aborted");
 		}
 		try {
@@ -575,12 +580,12 @@ public class KNXnetIPRouting extends ConnectionBase
 			setState(OK);
 		}
 		catch (final InterruptedIOException e) {
-			close(CloseEvent.USER_REQUEST, "interrupted", LogLevel.WARN, e);
+			close(CloseEvent.USER_REQUEST, "interrupted", WARNING, e);
 			Thread.currentThread().interrupt();
 			throw new KNXConnectionClosedException("interrupted connection got closed");
 		}
 		catch (final IOException e) {
-			close(CloseEvent.INTERNAL, "communication failure", LogLevel.ERROR, e);
+			close(CloseEvent.INTERNAL, "communication failure", ERROR, e);
 			throw new KNXConnectionClosedException("connection closed");
 		}
 	}
@@ -642,7 +647,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			for (final Iterator<CEMILData> i = loopbackFrames.iterator(); i.hasNext();) {
 				if (Arrays.equals(a, i.next().toByteArray())) {
 					i.remove();
-					logger.trace("discard multicast loopback cEMI frame: {}", frame);
+					logger.log(TRACE, "discard multicast loopback cEMI frame: {0}", frame);
 					return true;
 				}
 				// remove oldest entry if exceeding max. loopback queue size
@@ -677,14 +682,14 @@ public class KNXnetIPRouting extends ConnectionBase
 		// setup timing for routing busy flow control
 		final Instant now = Instant.now();
 		final Instant waitUntil = now.plus(busy.waitTime());
-		LogLevel level = LogLevel.TRACE;
+		Level level = TRACE;
 		boolean update = false;
 		if (waitUntil.isAfter(currentWaitUntil)) {
 			currentWaitUntil = waitUntil;
-			level = LogLevel.DEBUG;
+			level = DEBUG;
 			update = true;
 		}
-		LogService.log(logger, level, "device {} sent {}", Net.hostPort(sender), busy);
+		logger.log(level, "device {0} sent {1}", Net.hostPort(sender), busy);
 
 		// increment random wait scaling iff >= 10 ms have passed since the last counted routing busy
 		if (now.isAfter(lastRoutingBusy.plusMillis(10))) {
@@ -705,7 +710,7 @@ public class KNXnetIPRouting extends ConnectionBase
 		throttleUntil = pauseSendingUntil.plusMillis(throttle);
 
 		final long continueIn = Duration.between(now, pauseSendingUntil).toMillis();
-		logger.debug("set routing busy counter = {}, random wait = {} ms, continue sending in {} ms, throttle {} ms",
+		logger.log(DEBUG, "set routing busy counter = {0}, random wait = {1} ms, continue sending in {2} ms, throttle {3} ms",
 				routingBusyCounter, randomWait, continueIn, throttle);
 
 		final long initialDelay = Duration.between(now, throttleUntil).toMillis() + 5;
@@ -747,7 +752,7 @@ public class KNXnetIPRouting extends ConnectionBase
 			final Instant now = Instant.now();
 			final long sleep = Duration.between(now, pauseSendingUntil).toMillis();
 			if (sleep > 0) {
-				logger.debug("applying routing flow control for {}, wait {} ms ...",
+				logger.log(DEBUG, "applying routing flow control for {0}, wait {1} ms ...",
 						getRemoteAddress().getAddress().getHostAddress(), sleep);
 				Thread.sleep(sleep);
 			}
@@ -774,7 +779,7 @@ public class KNXnetIPRouting extends ConnectionBase
 				final long remaining = 1_000 - diff / 1_000_000;
 				if (remaining > 0) {
 					fireRateLimit();
-					logger.debug("reached max. datagrams/second, wait {} ms ...", remaining);
+					logger.log(DEBUG, "reached max. datagrams/second, wait {0} ms ...", remaining);
 					Thread.sleep(remaining);
 				}
 			}

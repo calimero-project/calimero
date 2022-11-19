@@ -36,6 +36,8 @@
 
 package tuwien.auto.calimero.link;
 
+import static java.lang.System.Logger.Level.INFO;
+
 import java.util.function.Function;
 
 import tuwien.auto.calimero.KNXException;
@@ -126,7 +128,7 @@ public class KNXNetworkMonitorFT12 extends AbstractMonitor<FT12Connection>
 		super(conn, "monitor " + conn.getPortID(), settings);
 		this.cEMI = cEMI;
 		enterBusmonitor();
-		logger.info("in busmonitor mode - ready to receive");
+		logger.log(INFO, "in busmonitor mode - ready to receive");
 		conn.addConnectionListener(notifier);
 	}
 

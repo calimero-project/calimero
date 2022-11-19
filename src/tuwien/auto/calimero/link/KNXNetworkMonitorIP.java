@@ -36,6 +36,7 @@
 
 package tuwien.auto.calimero.link;
 
+import static java.lang.System.Logger.Level.INFO;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPTunnel.TunnelingLayer.BusMonitorLayer;
 
 import java.net.InetSocketAddress;
@@ -136,7 +137,7 @@ public class KNXNetworkMonitorIP extends AbstractMonitor<KNXnetIPConnection>
 	protected KNXNetworkMonitorIP(final KNXnetIPConnection conn, final KNXMediumSettings settings)
 	{
 		super(conn, monitorName(conn.getRemoteAddress()), settings);
-		logger.info("in busmonitor mode - ready to receive");
+		logger.log(INFO, "in busmonitor mode - ready to receive");
 		conn.addConnectionListener(notifier);
 	}
 

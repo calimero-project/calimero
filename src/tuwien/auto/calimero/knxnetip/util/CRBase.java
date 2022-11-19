@@ -36,9 +36,10 @@
 
 package tuwien.auto.calimero.knxnetip.util;
 
-import java.io.ByteArrayOutputStream;
+import static java.lang.System.Logger.Level.WARNING;
 
-import org.slf4j.Logger;
+import java.io.ByteArrayOutputStream;
+import java.lang.System.Logger;
 
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.KNXFormatException;
@@ -111,7 +112,7 @@ class CRBase
 		if (type == KNXnetIPTunnel.TUNNEL_CONNECTION)
 			return request ? (CRBase) new TunnelCRI(data, offset) : new TunnelCRD(data, offset);
 		if (type != KNXnetIPDevMgmt.DEVICE_MGMT_CONNECTION && type != 0xf0)
-			logger.warn("unknown connection type 0x" + Integer.toHexString(type) + ", create default CRI/CRD");
+			logger.log(WARNING, "unknown connection type 0x" + Integer.toHexString(type) + ", create default CRI/CRD");
 		return request ? (CRBase) new CRI(data, offset) : new CRD(data, offset);
 	}
 
@@ -122,7 +123,7 @@ class CRBase
 		if (type == KNXnetIPTunnel.TUNNEL_CONNECTION)
 			return request ? (CRBase) new TunnelCRI(opt) : new TunnelCRD(opt);
 		if (type != KNXnetIPDevMgmt.DEVICE_MGMT_CONNECTION && type != 0xf0)
-			logger.warn("unknown connection type 0x" + Integer.toHexString(type) + ", create default CRI/CRD");
+			logger.log(WARNING, "unknown connection type 0x" + Integer.toHexString(type) + ", create default CRI/CRD");
 		return request ? (CRBase) new CRI(type, opt.clone()) : new CRD(type, opt.clone());
 	}
 

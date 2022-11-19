@@ -37,7 +37,12 @@
 package tuwien.auto.calimero.secure;
 
 import static java.lang.String.format;
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 
+import java.lang.System.Logger;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
@@ -61,8 +66,6 @@ import java.util.function.IntUnaryOperator;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.DataUnitBuilder;
@@ -306,7 +309,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 		final var secCtrl = SecurityControl.of(DataSecurity.AuthConf, true);
 		final var secureApdu = secureData(address(), surrogate, apdu, secCtrl)
 				.orElseThrow(() -> new KnxSecureException("no device toolkey for " + address()));
-		logger.trace("{}->{} GO diagnostics {} {}", address(), surrogate, service, DataUnitBuilder.toHex(value, " "));
+		logger.log(TRACE, "{0}->{1} GO diagnostics {2} {3}", address(), surrogate, service, DataUnitBuilder.toHex(value, " "));
 		send(surrogate, secureApdu);
 
 		final var future = new CompletableFuture<ReturnCode>().orTimeout(3, TimeUnit.SECONDS);
@@ -331,7 +334,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 			return;
 		final var returnCode = ReturnCode.of(data.get() & 0xff);
 		final int goService = data.get() & 0xff;
-		logger.trace("{}->{} GO diagnostics {} {}", src, dst, goService, returnCode);
+		logger.log(TRACE, "{0}->{1} GO diagnostics {2} {3}", src, dst, goService, returnCode);
 
 		final var future = pendingGoDiagnostics.get(src);
 		if (future != null)
@@ -433,7 +436,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 		final long seqSend = nextSequenceNumber(toolAccess);
 		if (seqSend == 0)
 			throw new KnxSecureException("0 is not a valid sequence number");
-		logger.trace("use {}sequence {}", toolAccess ? "tool access " : "", seqSend);
+		logger.log(TRACE, "use {0}sequence {1}", toolAccess ? "tool access " : "", seqSend);
 		final ByteBuffer seq = sixBytes(seqSend);
 		if (!syncRes)
 			secureApdu.put(seq);
@@ -521,10 +524,10 @@ public class SecureApplicationLayer implements AutoCloseable {
 				return Optional.of(extracted);
 			}
 			catch (final KnxSecureException kse) {
-				logger.info(kse.toString());
+				logger.log(INFO, kse.toString());
 			}
 			catch (KNXFormatException | RuntimeException ex) {
-				logger.warn(ex.toString());
+				logger.log(WARNING, ex.toString());
 			}
 			return Optional.empty();
 		}
@@ -552,7 +555,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 					request = i.next().getValue();
 					key = request.key();
 					if (i.hasNext())
-						logger.warn("multiple sync.req broadcasts, only first is checked");
+						logger.log(WARNING, "multiple sync.req broadcasts, only first is checked");
 				}
 			}
 			else
@@ -587,7 +590,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 			if (isGroupDst) {
 				final var senders = security.groupSenders(address()).get(dst);
 				if (senders != null && !senders.isEmpty() && !senders.contains(src)) {
-					logger.trace("{}->{} sender not in group sender list of {}, ignore", src, dst, address());
+					logger.log(TRACE, "{0}->{1} sender not in group sender list of {2}, ignore", src, dst, address());
 					return new SalService(securityCtrl, new byte[0]);
 				}
 			}
@@ -621,7 +624,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 
 		final var s = service == SecureSyncRequest ? "sync.req"
 				: service == SecureSyncResponse ? "sync.res" : "S-A_Data";
-		logger.debug("{}->{} decrypt {} ({})", src, dst, s, securityCtrl);
+		logger.log(DEBUG, "{0}->{1} decrypt {2} ({3})", src, dst, s, securityCtrl);
 
 		final byte[] apdu = new byte[asdu.remaining() - MacSize];
 		asdu.get(apdu);
@@ -691,11 +694,11 @@ public class SecureApplicationLayer implements AutoCloseable {
 		}
 
 		if (src.equals(address())) {
-			logger.trace("update next {}seq -> {}", toolAccess ? "tool access " : "", receivedSeq);
+			logger.log(TRACE, "update next {0}seq -> {1}", toolAccess ? "tool access " : "", receivedSeq);
 			updateSequenceNumber(toolAccess, receivedSeq + 1);
 		}
 		else {
-			logger.trace("update last valid {}seq of {} -> {}", toolAccess ? "tool access " : "", src, receivedSeq);
+			logger.log(TRACE, "update last valid {0}seq of {1} -> {2}", toolAccess ? "tool access " : "", src, receivedSeq);
 			updateLastValidSequence(toolAccess, src, receivedSeq);
 		}
 
@@ -724,7 +727,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 		final var challenge = ThreadLocalRandom.current().nextLong();
 		final byte[] secureApdu = secure(SecureSyncRequest, address(), remote, sixBytes(challenge).array(),
 				SecurityControl.of(DataSecurity.AuthConf, toolAccess)).get();
-		logger.debug("sync {} seq with {}", toolAccess ? "tool access" : "p2p", remote);
+		logger.log(DEBUG, "sync {0} seq with {1}", toolAccess ? "tool access" : "p2p", remote);
 
 		final var request = stashSyncRequest(remote, challenge);
 		send(remote, secureApdu);
@@ -749,7 +752,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 
 		final byte[] secureApdu = secure(SecureSyncRequest, address(), serialNumber, GroupAddress.Broadcast,
 				sixBytes(challenge).array(), secCtrl, key).get();
-		logger.debug("{} sync for S/N {} ({})", systemBroadcast ? "SBC" : "broadcast", serialNumber,
+		logger.log(DEBUG, "{0} sync for S/N {1} ({2})", systemBroadcast ? "SBC" : "broadcast", serialNumber,
 				toolAccess ? "tool access" : "p2p");
 
 		final var request = new SyncRequest(challenge, key);
@@ -889,8 +892,8 @@ public class SecureApplicationLayer implements AutoCloseable {
 			updateLastValidSequence(toolAccess, src, nextRemoteSeq - 1);
 			nextSeq = nextRemoteSeq;
 		}
-		logger.debug("{}->{} {}sync.req with {}seq {} (next {}), challenge {}", src, dst, sysBcast ? "SBC " : "", tool,
-				nextRemoteSeq, nextSeq, challenge);
+		logger.log(DEBUG, "{0}->{1} {2}sync.req with {3}seq {4} (next {5}), challenge {6}", src, dst,
+				sysBcast ? "SBC " : "", tool, nextRemoteSeq, nextSeq, challenge);
 		syncChallenge.set(challenge);
 		final var secCtrl = sysBcast ? SecurityControl.SystemBroadcast
 				: SecurityControl.of(DataSecurity.AuthConf, toolAccess);
@@ -903,13 +906,13 @@ public class SecureApplicationLayer implements AutoCloseable {
 
 		final long last = lastValidSequenceNumber(toolAccess, remote);
 		if (remoteSeq - 1 > last) {
-			logger.debug("sync.res update {} last valid {} seq -> {}", remote, toolAccess ? "tool access" : "p2p", remoteSeq -1);
+			logger.log(DEBUG, "sync.res update {0} last valid {1} seq -> {2}", remote, toolAccess ? "tool access" : "p2p", remoteSeq -1);
 			updateLastValidSequence(toolAccess, remote, remoteSeq - 1);
 		}
 
 		final long next = nextSequenceNumber(toolAccess);
 		if (localSeq > next) {
-			logger.debug("sync.res update local next {} seq -> {}", toolAccess ? "tool access" : "p2p", localSeq);
+			logger.log(DEBUG, "sync.res update local next {0} seq -> {1}", toolAccess ? "tool access" : "p2p", localSeq);
 			updateSequenceNumber(toolAccess, localSeq);
 		}
 	}
@@ -929,7 +932,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 				send(sendDst, response);
 			}
 			catch (KNXTimeoutException | KNXLinkClosedException e) {
-				logger.warn("error sending sync.res {}->{}", address(), sendDst, e);
+				logger.log(WARNING, "error sending sync.res {0}->{1}", address(), sendDst, e);
 			}
 		});
 	}
@@ -977,7 +980,7 @@ public class SecureApplicationLayer implements AutoCloseable {
 			if (!toolAccess)
 				throw new KnxSecureException(String.format("%s->%s system broadcast requires tool access", src, dst));
 			if (authOnly)
-				logger.warn("auth-only system broadcast not supported");
+				logger.log(WARNING, "auth-only system broadcast not supported");
 		}
 		final var ctrl = systemBroadcast ? SecurityControl.SystemBroadcast
 				: SecurityControl.of(authOnly ? DataSecurity.Auth : DataSecurity.AuthConf, toolAccess);

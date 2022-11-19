@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2018, 2021 B. Malinowsky
+    Copyright (c) 2018, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,6 +36,8 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.knxnetip.Net.hostPort;
 
 import java.io.IOException;
@@ -82,7 +84,7 @@ final class SecureDeviceManagementUdp extends KNXnetIPDevMgmt {
 
 		final int svc = h.getServiceType();
 		if (!h.isSecure()) {
-			logger.trace("received insecure service type 0x{} - ignore", Integer.toHexString(svc));
+			logger.log(TRACE, "received insecure service type 0x{0} - ignore", Integer.toHexString(svc));
 			return true;
 		}
 
@@ -104,7 +106,7 @@ final class SecureDeviceManagementUdp extends KNXnetIPDevMgmt {
 			}
 		}
 		else
-			logger.warn("received unsupported secure service type 0x{} - ignore", Integer.toHexString(svc));
+			logger.log(WARNING, "received unsupported secure service type 0x{0} - ignore", Integer.toHexString(svc));
 		return true;
 	}
 }

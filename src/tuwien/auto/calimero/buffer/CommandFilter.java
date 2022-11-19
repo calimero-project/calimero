@@ -36,6 +36,8 @@
 
 package tuwien.auto.calimero.buffer;
 
+import static java.lang.System.Logger.Level.ERROR;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -56,6 +58,7 @@ import tuwien.auto.calimero.cemi.CEMILData;
 import tuwien.auto.calimero.datapoint.Datapoint;
 import tuwien.auto.calimero.datapoint.DatapointModel;
 import tuwien.auto.calimero.log.LogService;
+
 
 /**
  * Predefined filter for filtering KNX messages of command based datapoints into the
@@ -79,7 +82,7 @@ public class CommandFilter implements NetworkFilter, RequestFilter
 			Optional.ofNullable(userListener).ifPresent(listener -> listener.accept(queue));
 		}
 		catch (final RuntimeException e) {
-			LogService.getLogger("calimero.buffer").error("L-Data queue listener unexpected behavior", e);
+			LogService.getLogger("calimero.buffer").log(ERROR, "L-Data queue listener unexpected behavior", e);
 		}
 	};
 
@@ -222,7 +225,7 @@ public class CommandFilter implements NetworkFilter, RequestFilter
 			copy = (CEMILData) CEMIFactory.create(CEMILData.MC_LDATA_IND, d, f);
 		}
 		catch (final KNXFormatException e) {
-			LogService.getLogger("calimero").error("create L_Data.ind for network buffer: {}", f, e);
+			LogService.getLogger("calimero").log(ERROR, "create L_Data.ind for network buffer: {0}", f, e);
 			return;
 		}
 		CacheObject co = cache.get(dst);

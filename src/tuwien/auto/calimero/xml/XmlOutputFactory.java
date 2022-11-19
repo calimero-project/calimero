@@ -1,6 +1,6 @@
 /*
     Calimero 2 - A library for KNX network access
-    Copyright (c) 2015, 2018 B. Malinowsky
+    Copyright (c) 2015, 2022 B. Malinowsky
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,15 +36,17 @@
 
 package tuwien.auto.calimero.xml;
 
+import static java.lang.System.Logger.Level.TRACE;
+
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.lang.System.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tuwien.auto.calimero.log.LogService;
 
 /**
  * Creates XML stream writers for working with XML resources. The factory tries to obtain a platform
@@ -55,7 +57,7 @@ import org.slf4j.LoggerFactory;
  */
 public class XmlOutputFactory // extends XMLOutputFactory
 {
-	private static final Logger l = LoggerFactory.getLogger("calimero.xml");
+	private static final Logger l = LogService.getLogger("calimero.xml");
 
 	private final Map<String, Object> config = new HashMap<>();
 
@@ -82,11 +84,11 @@ public class XmlOutputFactory // extends XMLOutputFactory
 	{
 		try {
 			final XmlStreamWriterProxy w = XmlStreamWriterProxy.createXmlStreamWriter(stream);
-			l.trace("using StaX XMLStreamWriter {}", w.w.getClass().getName());
+			l.log(TRACE, "using StaX XMLStreamWriter {0}", w.w.getClass().getName());
 			return w;
 		}
 		catch (Exception | Error e) {
-			l.trace("no StaX implementation found ({}), using internal XMLStreamWriter", e.toString());
+			l.log(TRACE, "no StaX implementation found ({0}), using internal XMLStreamWriter", e.toString());
 			// fall-through to minimal writer implementation
 		}
 		return new DefaultXmlWriter(stream, false);
@@ -102,11 +104,11 @@ public class XmlOutputFactory // extends XMLOutputFactory
 		try {
 			final XmlStreamWriterProxy w = XmlStreamWriterProxy.createXmlStreamWriter(stream,
 					closeStream ? stream : () -> {});
-			l.trace("using StaX XMLStreamWriter {}", w.w.getClass().getName());
+			l.log(TRACE, "using StaX XMLStreamWriter {0}", w.w.getClass().getName());
 			return w;
 		}
 		catch (Exception | Error e) {
-			l.trace("no StaX implementation found ({}), using internal XMLStreamWriter", e.toString());
+			l.log(TRACE, "no StaX implementation found ({0}), using internal XMLStreamWriter", e.toString());
 			// fall-through to minimal writer implementation
 		}
 		try {

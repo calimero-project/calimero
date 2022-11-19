@@ -141,7 +141,6 @@ signing {
 }
 
 dependencies {
-    api 'org.slf4j:slf4j-api:1.7.36'
     api 'org.usb4java:usb4java-javax:1.3.0'
 
 	testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"

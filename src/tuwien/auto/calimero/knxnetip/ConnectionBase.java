@@ -36,11 +36,17 @@
 
 package tuwien.auto.calimero.knxnetip;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPConnection.BlockingMode.NonBlocking;
 import static tuwien.auto.calimero.knxnetip.KNXnetIPConnection.BlockingMode.WaitForAck;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -49,8 +55,6 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.DataUnitBuilder;
@@ -70,7 +74,6 @@ import tuwien.auto.calimero.knxnetip.servicetype.PacketHelper;
 import tuwien.auto.calimero.knxnetip.servicetype.RoutingIndication;
 import tuwien.auto.calimero.knxnetip.servicetype.ServiceRequest;
 import tuwien.auto.calimero.knxnetip.util.HPAI;
-import tuwien.auto.calimero.log.LogService.LogLevel;
 
 /**
  * Generic implementation of a KNXnet/IP connection, used for tunneling, device management and routing.
@@ -204,7 +207,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 			throw new KNXConnectionClosedException("send attempt on closed connection");
 		}
 		if (state < 0) {
-			logger.error("send invoked in error state " + state + " - aborted");
+			logger.log(ERROR, "send invoked in error state " + state + " - aborted");
 			throw new IllegalStateException("in error state, send aborted");
 		}
 		// arrange into line depending on blocking mode
@@ -212,7 +215,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 		lock.lock();
 		try {
 			if (mode == NonBlocking && state != OK && state != ACK_ERROR) {
-				logger.warn(
+				logger.log(WARNING,
 						"nonblocking send invoked while waiting for data response in state " + state + " - aborted");
 				sendWaitQueue.release(false);
 				throw new IllegalStateException("waiting for data response");
@@ -231,8 +234,8 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 				keepForCon = frame;
 				int attempt = 0;
 				for (; attempt < maxSendAttempts; ++attempt) {
-					if (logger.isTraceEnabled())
-						logger.trace("sending cEMI frame seq {}, {}, attempt {} (channel {}) {}", getSeqSend(), mode,
+					if (logger.isLoggable(TRACE))
+						logger.log(TRACE, "sending cEMI frame seq {0}, {1}, attempt {2} (channel {3}) {4}", getSeqSend(), mode,
 								(attempt + 1), channelId, DataUnitBuilder.toHex(buf, " "));
 
 					send(buf, dataEndpt);
@@ -259,7 +262,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 				if (attempt == maxSendAttempts) {
 					final KNXAckTimeoutException e = new KNXAckTimeoutException(
 							"maximum send attempts, no service acknowledgment received");
-					close(CloseEvent.INTERNAL, "maximum send attempts", LogLevel.ERROR, e);
+					close(CloseEvent.INTERNAL, "maximum send attempts", ERROR, e);
 					throw e;
 				}
 				// always forward this state to user
@@ -271,7 +274,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 				throw new InterruptedException("interrupted I/O, " + e);
 			}
 			catch (final IOException e) {
-				close(CloseEvent.INTERNAL, "communication failure", LogLevel.ERROR, e);
+				close(CloseEvent.INTERNAL, "communication failure", ERROR, e);
 				throw new KNXConnectionClosedException("connection closed", e);
 			}
 			finally {
@@ -322,7 +325,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 	@Override
 	public final void close()
 	{
-		close(CloseEvent.USER_REQUEST, "user request", LogLevel.DEBUG, null);
+		close(CloseEvent.USER_REQUEST, "user request", DEBUG, null);
 	}
 
 	@Override
@@ -381,7 +384,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 	boolean handleServiceType(final KNXnetIPHeader h, final byte[] data, final int offset,
 			final InetSocketAddress source) throws KNXFormatException, IOException {
 		final int hdrStart = offset - h.getStructLength();
-		logger.trace("from {}: {}: {}", Net.hostPort(source), h,
+		logger.log(TRACE, "from {0}: {1}: {2}", Net.hostPort(source), h,
 				DataUnitBuilder.toHex(Arrays.copyOfRange(data, hdrStart, hdrStart + h.getTotalLength()), " "));
 		return handleServiceType(h, data, offset, source.getAddress(), source.getPort());
 	}
@@ -455,7 +458,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 	 * @param level log level to use for logging, adjust this to the reason of closing this connection
 	 * @param t a throwable, to pass to the logger if the close event was caused by some error, can be {@code null}
 	 */
-	protected void close(final int initiator, final String reason, final LogLevel level, final Throwable t)
+	protected void close(final int initiator, final String reason, final Level level, final Throwable t)
 	{
 		synchronized (this) {
 			if (closing > 0)
@@ -467,7 +470,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 			final boolean tcp = ctrlSocket == null;
 			final var hpai = tcp ? HPAI.Tcp : new HPAI(HPAI.IPV4_UDP,
 					useNat ? null : (InetSocketAddress) ctrlSocket.getLocalSocketAddress());
-			logger.trace("sending disconnect request for {}", this);
+			logger.log(TRACE, "sending disconnect request for {0}", this);
 			final byte[] buf = PacketHelper.toPacket(new DisconnectRequest(channelId, hpai));
 			send(buf, ctrlEndpt);
 			long remaining = CONNECT_REQ_TIMEOUT * 1000L;
@@ -484,7 +487,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 			// we have to also catch RTEs here, since if socket already failed
 			// before close(), getLocalSocketAddress() might throw illegal argument
 			// exception or return the wildcard address, indicating a messed up socket
-			logger.error("send disconnect failed", e);
+			logger.log(ERROR, "send disconnect failed", e);
 		}
 		finally {
 			lock.unlock();
@@ -498,7 +501,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 	 * @param level log level to use for logging, adjust this to the reason of closing this connection
 	 * @param t a throwable, to pass to the logger if the close event was caused by some error, can be {@code null}
 	 */
-	protected void cleanup(final int initiator, final String reason, final LogLevel level, final Throwable t)
+	protected void cleanup(final int initiator, final String reason, final Level level, final Throwable t)
 	{
 		setStateNotify(CLOSED);
 		fireConnectionClosed(initiator, reason);
@@ -509,7 +512,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 	{
 		final boolean supported = h.getVersion() == KNXnetIPConnection.KNXNETIP_VERSION_10;
 		if (!supported)
-			logger.warn("KNXnet/IP {}.{} {}", h.getVersion() >> 4, h.getVersion() & 0xf,
+			logger.log(WARNING, "KNXnet/IP {0}.{1} {2}", h.getVersion() >> 4, h.getVersion() & 0xf,
 					ErrorCodes.getErrorMessage(ErrorCodes.VERSION_NOT_SUPPORTED));
 		return supported;
 	}
@@ -525,7 +528,7 @@ public abstract class ConnectionBase implements KNXnetIPConnection
 	{
 		if (id == channelId)
 			return true;
-		logger.warn("received service " + svcType + " with wrong channel ID " + id + ", expected " + channelId
+		logger.log(WARNING, "received service " + svcType + " with wrong channel ID " + id + ", expected " + channelId
 				+ " - ignored");
 		return false;
 	}

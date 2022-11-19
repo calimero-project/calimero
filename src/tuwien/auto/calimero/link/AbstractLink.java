@@ -36,14 +36,19 @@
 
 package tuwien.auto.calimero.link;
 
+import static java.lang.System.Logger.Level.DEBUG;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
+import static java.lang.System.Logger.Level.TRACE;
+import static java.lang.System.Logger.Level.WARNING;
+
+import java.lang.System.Logger;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.StringJoiner;
-
-import org.slf4j.Logger;
 
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.DataUnitBuilder;
@@ -157,10 +162,10 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 						return;
 
 					if ((frame[0] & 0xff) == PeiIdentifyCon) {
-						logger.info("PEI identify {}", DataUnitBuilder.toHex(frame, " "));
+						logger.log(INFO, "PEI identify {0}", DataUnitBuilder.toHex(frame, " "));
 						final int manufacturer = unsigned(frame[3], frame[4]);
 						if (manufacturer == 0xc5) {
-							logger.info("link connected to weinzierl device");
+							logger.log(INFO, "link connected to weinzierl device");
 						}
 					}
 
@@ -189,10 +194,10 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 					final int mc = tdata.getMessageCode();
 					if (mc == CemiTData.IndividualIndication || mc == CemiTData.ConnectedIndication) {
 						addEvent(l -> l.indication(new FrameEvent(source, tdata)));
-						logger.debug("received {}", tdata);
+						logger.log(DEBUG, "received {0}", tdata);
 					}
 					else
-						logger.warn("unsupported cEMI T-Data, msg code = 0x{}: {}", Integer.toHexString(mc), tdata);
+						logger.log(WARNING, "unsupported cEMI T-Data, msg code = 0x{0}: {1}", Integer.toHexString(mc), tdata);
 				}
 
 				// from this point on, we are only dealing with L_Data
@@ -202,21 +207,21 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 				final int mc = cemi.getMessageCode();
 				if (mc == CEMILData.MC_LDATA_IND) {
 					addEvent(l -> l.indication(new FrameEvent(source, ldata)));
-					logger.debug("indication {}", ldata);
+					logger.log(DEBUG, "indication {0}", ldata);
 				}
 				else if (mc == CEMILData.MC_LDATA_CON) {
 					addEvent(l -> l.confirmation(new FrameEvent(source, ldata)));
 					if (ldata.isPositiveConfirmation())
-						logger.debug("confirmation of {}", ldata.getDestination());
+						logger.log(DEBUG, "confirmation of {0}", ldata.getDestination());
 					else
-						logger.warn("negative confirmation of {}: {}", ldata.getDestination(),
+						logger.log(WARNING, "negative confirmation of {0}: {1}", ldata.getDestination(),
 								DataUnitBuilder.toHex(ldata.toByteArray(), " "));
 				}
 				else
-					logger.warn("unspecified L-data frame event - ignored, msg code = 0x" + Integer.toHexString(mc));
+					logger.log(WARNING, "unspecified L-data frame event - ignored, msg code = 0x" + Integer.toHexString(mc));
 			}
 			catch (final KNXFormatException | RuntimeException ex) {
-				logger.warn("received unspecified frame {}", DataUnitBuilder.toHex(e.getFrameBytes(), " "), ex);
+				logger.log(WARNING, "received unspecified frame {0}", DataUnitBuilder.toHex(e.getFrameBytes(), " "), ex);
 			}
 		}
 
@@ -224,7 +229,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		public void connectionClosed(final CloseEvent e)
 		{
 			AbstractLink.this.closed = true;
-			logger.debug("link closed");
+			logger.log(DEBUG, "link closed");
 			if (wrappedByConnector) {
 				getListeners().listeners().stream().filter(Connector.Link.class::isInstance)
 					.forEach(l -> l.linkClosed(e));
@@ -300,7 +305,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		if (count < 0 || count > 7)
 			throw new KNXIllegalArgumentException("hop count out of range [0..7]");
 		hopCount = count;
-		logger.debug("hop count set to {}", count);
+		logger.log(DEBUG, "hop count set to {0}", count);
 	}
 
 	@Override
@@ -476,7 +481,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		final int mc = f.getMessageCode();
 		if (mc == CEMIDevMgmt.MC_PROPWRITE_CON) {
 			if (f.isNegativeResponse())
-				logger.error("L-DM negative response, " + f.getErrorMessage());
+				logger.log(ERROR, "L-DM negative response, " + f.getErrorMessage());
 		}
 		synchronized (this) {
 			devMgmt = f;
@@ -491,7 +496,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		final int supplied = getKNXMedium().getMedium();
 		final int types = read(cemiServerObject, pidMediumType).map(AbstractLink::unsigned).orElse(supplied);
 		if ((types & supplied) != supplied)
-			logger.warn("wrong communication medium setting: using {} to access {} medium",
+			logger.log(WARNING, "wrong communication medium setting: using {0} to access {1} medium",
 					KNXMediumSettings.getMediumString(supplied), mediumTypes(types));
 	}
 
@@ -512,7 +517,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		final KNXMediumSettings settings = getKNXMedium();
 		maxApduLength().ifPresent(settings::setMaxApduLength);
 		if (settings.maxApduLength() != 15)
-			logger.debug("using max. APDU length of {}", settings.maxApduLength());
+			logger.log(DEBUG, "using max. APDU length of {0}", settings.maxApduLength());
 	}
 
 	Optional<Integer> maxApduLength() throws KNXException, InterruptedException {
@@ -540,7 +545,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 					BcuSwitcher.pidCommMode, 1, 1);
 			onSend(recheck);
 			responseFor(CEMIDevMgmt.MC_PROPREAD_CON, BcuSwitcher.pidCommMode)
-					.ifPresent(mode -> logger.debug("comm mode {}",
+					.ifPresent(mode -> logger.log(DEBUG, "comm mode {0}",
 							(mode[0] & 0xff) == 0xf0 ? "BAOS" : DataUnitBuilder.toHex(mode, "")));
 			baosMode = enable;
 		}
@@ -625,7 +630,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		}
 		else
 			return;
-		logger.trace("add cEMI additional info for {}{}", medium.getMediumString(), s);
+		logger.log(TRACE, "add cEMI additional info for {0}{1}", medium.getMediumString(), s);
 	}
 
 	private void addMediumInfo(final CemiTData msg) {
@@ -644,7 +649,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		}
 		else
 			return;
-		logger.trace("add cEMI additional info for {}{}", medium.getMediumString(), s);
+		logger.log(TRACE, "add cEMI additional info for {0}{1}", medium.getMediumString(), s);
 	}
 
 	// Creates the target EMI format using L-Data message parameters
@@ -665,7 +670,7 @@ public abstract class AbstractLink<T extends AutoCloseable> implements KNXNetwor
 		if (cEMI) {
 			final CEMILData adjusted = adjustMsgType(f);
 			addMediumInfo(adjusted);
-			logger.debug("send {}{}", (waitForCon ? "(wait for confirmation) " : ""), adjusted);
+			logger.log(DEBUG, "send {0}{1}", (waitForCon ? "(wait for confirmation) " : ""), adjusted);
 			return adjusted.toByteArray();
 		}
 		return CEMIFactory.toEmi(f);
